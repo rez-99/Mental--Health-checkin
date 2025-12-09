@@ -16,12 +16,19 @@ async function apiRequest<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${path}`;  // <- no window.location.origin here
   
+  const token = getAuthToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
   const res = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
+    headers,
   });
 
   if (!res.ok) {
