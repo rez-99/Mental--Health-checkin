@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { studentApi, createMockToken, setMockToken } from './api'
+import { studentApi, counsellorApi, createMockToken, setMockToken } from './api'
 
 type CheckInEntry = {
   id: string
@@ -29,6 +29,42 @@ type CheckInEntry = {
   safetyRisk?: 'low' | 'moderate' | 'high' | 'immediate'
   crisisAlertTriggered?: boolean
 }
+
+type RiskTheme = 'anxiety' | 'sadness' | 'sleep' | 'anger'
+
+interface SkillPathRecommendation {
+  id: string
+  title: string
+  theme: RiskTheme
+  shortDescription: string
+}
+
+const SKILL_PATHS: SkillPathRecommendation[] = [
+  {
+    id: 'anxiety-path',
+    theme: 'anxiety',
+    title: 'Calm My Body & Thoughts',
+    shortDescription: 'Quick breathing, grounding, and realistic-thinking tools when worry is high.',
+  },
+  {
+    id: 'sadness-path',
+    theme: 'sadness',
+    title: 'Lift My Mood Gently',
+    shortDescription: 'Tiny actions, self-compassion, and activity-scheduling when mood is low.',
+  },
+  {
+    id: 'sleep-path',
+    theme: 'sleep',
+    title: 'Sleep Reset',
+    shortDescription: 'Wind-down routine, screen limits, and breathing for better sleep.',
+  },
+  {
+    id: 'anger-path',
+    theme: 'anger',
+    title: 'Cool Down & Respond',
+    shortDescription: 'Body-calm + "pause & plan" tools for anger and frustration.',
+  },
+]
 
 type FollowUpStatus = 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'no_action_needed'
 
@@ -925,13 +961,12 @@ export function App() {
     return initialStudents
   })
   const [lastSaved, setLastSaved] = useState<CheckInEntry | null>(null)
-  const recommendedPathsRef = useRef<SkillPath[]>([])
-  const [recommendedPaths, setRecommendedPaths] = useState<SkillPath[]>([])
+  const [recommendedPaths, setRecommendedPaths] = useState<SkillPathRecommendation[] | null>(null)
   
-  // Sync ref with state
-  useEffect(() => {
-    recommendedPathsRef.current = recommendedPaths
-  }, [recommendedPaths])
+  // Flags state for counsellor dashboard
+  const [flags, setFlags] = useState<any[] | null>(null)
+  const [flagsLoading, setFlagsLoading] = useState(false)
+  const [flagsError, setFlagsError] = useState<string | null>(null)
   
   useEffect(() => {
     localStorage.setItem(DEVICE_INFO_KEY, JSON.stringify(deviceInfo))
@@ -1079,6 +1114,29 @@ export function App() {
     }
     
     return threats
+  }
+
+  function getRecommendedPathsFromEntry(entry: CheckInEntry): SkillPathRecommendation[] {
+    const picks: SkillPathRecommendation[] = []
+
+    // Example simple rules – you can tune later:
+    if (entry.worries >= 4 || entry.concentration <= 2) {
+      const anxiety = SKILL_PATHS.find(p => p.theme === 'anxiety')
+      if (anxiety) picks.push(anxiety)
+    }
+
+    if (entry.mood <= 2 || entry.burden >= 4) {
+      const sadness = SKILL_PATHS.find(p => p.theme === 'sadness')
+      if (sadness && !picks.includes(sadness)) picks.push(sadness)
+    }
+
+    if (entry.sleepQuality <= 2) {
+      const sleep = SKILL_PATHS.find(p => p.theme === 'sleep')
+      if (sleep && !picks.includes(sleep)) picks.push(sleep)
+    }
+
+    // Cap at 2 so we don't overwhelm the student
+    return picks.slice(0, 2)
   }
 
   const handleCheckInSubmit = async (entry: Omit<CheckInEntry, 'id' | 'createdAt'>) => {
@@ -1271,12 +1329,7 @@ export function App() {
     
     // Set lastSaved BEFORE API call so success modal shows immediately
     setLastSaved(newEntry)
-    
-    // Recommend skill paths based on check-in results
-    const paths = recommendSkillPaths(newEntry)
-    if (paths.length > 0) {
-      setRecommendedPaths(paths)
-    }
+    setRecommendedPaths(getRecommendedPathsFromEntry(newEntry))
     
     // Submit to API (non-blocking - don't wait for it)
     // This runs in the background so the success modal shows immediately
@@ -1316,6 +1369,26 @@ export function App() {
       sessionId: params.get('sessionId'),
     }
   }, [])
+
+  // Load flags when counsellor view is active
+  useEffect(() => {
+    if (activeView !== 'staff') {
+      setFlags(null)
+      return
+    }
+
+    setFlagsLoading(true)
+    counsellorApi.getFlags()
+      .then((data: any) => {
+        setFlags(data as any[])
+        setFlagsError(null)
+      })
+      .catch((err) => {
+        console.error('Failed to load flags', err)
+        setFlagsError('Could not load flags')
+      })
+      .finally(() => setFlagsLoading(false))
+  }, [activeView])
 
   return (
     <div className="app-shell">
@@ -1445,9 +1518,73 @@ export function App() {
               }
             }}
             deviceInfo={deviceInfo}
+            recommendedPaths={recommendedPaths}
+            onRecommendedPathsChange={setRecommendedPaths}
           />
         ) : activeView === 'staff' ? (
-          <CounselorDashboard students={students} onStudentsUpdate={setStudents} translations={t} />
+          <div>
+            <CounselorDashboard students={students} onStudentsUpdate={setStudents} translations={t} />
+            <div style={{ marginTop: '2rem', padding: '1rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>Recent Risk Flags</h2>
+              {flagsLoading && <p style={{ fontSize: '0.875rem', color: '#64748b' }}>Loading flags…</p>}
+              {flagsError && <p style={{ fontSize: '0.875rem', color: '#ef4444' }}>{flagsError}</p>}
+              {flags && flags.length === 0 && !flagsLoading && (
+                <p style={{ fontSize: '0.875rem', color: '#64748b' }}>No flags yet.</p>
+              )}
+              {flags && flags.length > 0 && (
+                <div style={{ overflowX: 'auto', borderRadius: '0.75rem', border: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                  <table style={{ minWidth: '100%', fontSize: '0.875rem' }}>
+                    <thead style={{ backgroundColor: '#f8fafc' }}>
+                      <tr>
+                        <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Student</th>
+                        <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Type</th>
+                        <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Severity</th>
+                        <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {flags.map((flag: any) => (
+                        <tr key={flag.id} style={{ borderTop: '1px solid #e2e8f0' }}>
+                          <td style={{ padding: '0.5rem 0.75rem' }}>
+                            {flag.student?.displayName ?? flag.student_id}
+                            {flag.student?.grade && (
+                              <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#64748b' }}>
+                                Grade {flag.student.grade}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.75rem' }}>
+                            {flag.type.replace(/_/g, ' ')}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.75rem' }}>
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              borderRadius: '9999px',
+                              padding: '0.125rem 0.5rem',
+                              fontSize: '0.75rem',
+                              fontWeight: 500,
+                              ...(flag.severity === 'high'
+                                ? { backgroundColor: '#fee2e2', color: '#991b1b' }
+                                : flag.severity === 'moderate'
+                                ? { backgroundColor: '#fef3c7', color: '#92400e' }
+                                : { backgroundColor: '#d1fae5', color: '#065f46' }
+                              )
+                            }}>
+                              {flag.severity}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748b' }}>
+                            {new Date(flag.createdAt).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
         ) : activeView === 'parent' ? (
           <ParentPortal students={students} />
         ) : null}
@@ -1472,6 +1609,8 @@ type StudentCheckInProps = {
   translations: typeof translations.en
   onCalmRoomSession?: (session: CalmRoomSession) => void
   deviceInfo?: DeviceInfo
+  recommendedPaths?: SkillPathRecommendation[] | null
+  onRecommendedPathsChange?: (paths: SkillPathRecommendation[] | null) => void
 }
 
 type CalmRoomQRScannerProps = {
@@ -1590,7 +1729,7 @@ const CalmRoomQRScanner = ({ onSessionComplete, onClose }: CalmRoomQRScannerProp
   )
 }
 
-const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferencesChange, resources, translations, onCalmRoomSession, deviceInfo }: StudentCheckInProps) => {
+const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferencesChange, resources, translations, onCalmRoomSession, deviceInfo, recommendedPaths, onRecommendedPathsChange }: StudentCheckInProps) => {
   // Create translated slider config based on current language
   const getTranslatedSliderConfig = () => {
     return [
@@ -1935,14 +2074,52 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
               {engagement.currentStreak === 1 && ` ${translations.gladYoureHere}`}
             </h2>
             <p className="modal-note">{translations.adultsSeeTrends.replace('{date}', formatDate(lastSaved.createdAt))}</p>
-            {/* Recommended paths feature - temporarily disabled due to TypeScript scoping issue */}
-            {/* TODO: Fix TypeScript scoping for recommendedPaths */}
-            {checkInCount >= 2 && (
+            
+            {recommendedPaths && recommendedPaths.length > 0 && (
+              <div style={{ marginTop: '1.5rem', borderTop: '1px solid #e2e8f0', paddingTop: '1rem' }}>
+                <h3 style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>
+                  Suggested skill paths to try next
+                </h3>
+                <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.75rem' }}>
+                  Based on your answers today, these short paths might help. You can explore them anytime.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {recommendedPaths.map(path => (
+                    <div
+                      key={path.id}
+                      style={{
+                        borderRadius: '0.75rem',
+                        border: '1px solid #e2e8f0',
+                        padding: '0.75rem 1rem',
+                        backgroundColor: '#f8fafc',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{path.title}</div>
+                      <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginTop: '0.25rem' }}>
+                        {path.theme === 'anxiety' && 'Anxiety / Stress'}
+                        {path.theme === 'sadness' && 'Low mood / Feeling down'}
+                        {path.theme === 'sleep' && 'Sleep & Nighttime'}
+                        {path.theme === 'anger' && 'Anger / Frustration'}
+                      </div>
+                      <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.25rem' }}>
+                        {path.shortDescription}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {checkInCount >= 2 && (!recommendedPaths || recommendedPaths.length === 0) && (
               <button type="button" className="primary" onClick={() => { setShowSkills(true); setSubmitted(false); }}>
                 {translations.trySkillPractice}
               </button>
             )}
-            <button type="button" className="ghost" onClick={() => setSubmitted(false)}>
+            <button type="button" className="ghost" onClick={() => {
+              setSubmitted(false)
+              onRecommendedPathsChange?.(null)
+            }}>
               {translations.gotIt}
             </button>
           </div>
@@ -3640,30 +3817,7 @@ const skillPaths: SkillPath[] = [
   },
 ]
 
-// Function to recommend skill paths based on check-in results
-function recommendSkillPaths(entry: CheckInEntry): SkillPath[] {
-  const recommendations: SkillPath[] = []
-  
-  for (const path of skillPaths) {
-    if (!path.recommendedFor) continue
-    
-    const { mood, worries, sleepQuality, energy, concentration, burden } = path.recommendedFor
-    let matches = false
-    
-    if (mood !== undefined && entry.mood <= mood) matches = true
-    if (worries !== undefined && entry.worries >= worries) matches = true
-    if (sleepQuality !== undefined && entry.sleepQuality <= sleepQuality) matches = true
-    if (energy !== undefined && entry.energy <= energy) matches = true
-    if (concentration !== undefined && entry.concentration <= concentration) matches = true
-    if (burden !== undefined && entry.burden >= burden) matches = true
-    
-    if (matches) {
-      recommendations.push(path)
-    }
-  }
-  
-  return recommendations
-}
+// Old function removed - using getRecommendedPathsFromEntry instead
 
 type SkillsPathModalProps = {
   recommendedPaths?: SkillPath[]

@@ -82,6 +82,17 @@ export const counsellorApi = {
   getDashboard: async () => {
     return apiRequest('/api/dashboard/overview');
   },
+
+  // Get flags
+  async getFlags() {
+    const token = createMockToken('counsellor-1', 'COUNSELLOR', 'school-dev-1');
+    setMockToken(token);
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+    
+    return apiRequest(`${baseUrl}/api/dashboard/flags`, {
+      method: 'GET',
+    });
+  },
 };
 
 // Health check

@@ -624,6 +624,35 @@ app.get(
   }
 );
 
+// List recent flags for counsellor / admin
+app.get("/api/dashboard/flags", authMiddleware, async (req, res) => {
+  try {
+    if (!req.user || (req.user.role !== "COUNSELLOR" && req.user.role !== "ADMIN")) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const schoolId = req.user.schoolId;
+
+    const flags = await prisma.flag.findMany({
+      where: {
+        student: { schoolId },
+      },
+      include: {
+        student: {
+          select: { id: true, displayName: true, grade: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+
+    return res.json(flags);
+  } catch (error) {
+    console.error("Error fetching flags:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => {
