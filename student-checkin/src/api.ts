@@ -29,25 +29,26 @@ function getHeaders(): HeadersInit {
 
 // API request wrapper
 async function apiRequest<T>(
-  endpoint: string,
+  path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${API_BASE_URL}${path}`;  // <- no window.location.origin here
   
-  const response = await fetch(url, {
+  const res = await fetch(url, {
     ...options,
     headers: {
-      ...getHeaders(),
-      ...options.headers,
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
     },
   });
 
-  if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    console.error('API error', res.status, url, text);
+    throw new Error(text || `API error ${res.status}`);
   }
 
-  return response.json();
+  return res.json();
 }
 
 // Student API
