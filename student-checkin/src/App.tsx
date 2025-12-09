@@ -528,6 +528,21 @@ const translations = {
     counselorDashboard: 'Counselor dashboard',
     weeklyCheckIn: 'Weekly well-being check-in',
     checkInDesc: 'A quick check-in to help your school notice patterns and offer support. You\'re not weird for feeling this way—lots of students feel similar things. This can\'t replace a counselor, but it helps adults reach out sooner.',
+    heroTitleStudent: 'A quick check-in that can turn into real support.',
+    heroSubtitleStudent: 'Answer a few questions about how you\'ve been feeling. Your school uses this to notice who might need extra support.',
+    takesMinutes: 'Takes about 2–3 minutes',
+    answersPrivate: 'Your answers aren\'t shared with classmates',
+    notATest: 'Not a test – just a check-in',
+    startCheckIn: 'Start my check-in',
+    howItWorks: 'How this works / Privacy',
+    parentPortal: 'Parent/Caregiver Portal',
+    thanksForCheckingIn: 'Thanks for checking in',
+    weekStreak: 'You\'re on a {count} week streak! 🔥',
+    gladYoureHere: 'We\'re glad you\'re here today, even on a hard week. 💛',
+    adultsSeeTrends: 'Adults see trends to offer support—never diagnoses. Your check-in from {date} is on file.',
+    trySkillPractice: 'Try a quick skill practice →',
+    gotIt: 'Got it',
+    tryQuickSkill: '💡 Try a quick skill practice?',
   },
   es: {
     heroTitle: 'Momentos de registro que se convierten en apoyo oportuno.',
@@ -536,6 +551,21 @@ const translations = {
     counselorDashboard: 'Panel de consejeros',
     weeklyCheckIn: 'Registro semanal de bienestar',
     checkInDesc: 'Reflexión de 2 minutos. Esto ayuda a tu escuela a apoyar mejor a los estudiantes—no es un diagnóstico, solo un registro de apoyo.',
+    heroTitleStudent: 'Un registro rápido que puede convertirse en apoyo real.',
+    heroSubtitleStudent: 'Responde algunas preguntas sobre cómo te has sentido. Tu escuela usa esto para notar quién podría necesitar apoyo adicional.',
+    takesMinutes: 'Toma aproximadamente 2–3 minutos',
+    answersPrivate: 'Tus respuestas no se comparten con tus compañeros',
+    notATest: 'No es un examen, solo un registro',
+    startCheckIn: 'Comenzar mi registro',
+    howItWorks: 'Cómo funciona / Privacidad',
+    parentPortal: 'Portal para padres/cuidadores',
+    thanksForCheckingIn: 'Gracias por registrarte',
+    weekStreak: '¡Llevas {count} semanas seguidas! 🔥',
+    gladYoureHere: 'Nos alegra que estés aquí hoy, incluso en una semana difícil. 💛',
+    adultsSeeTrends: 'Los adultos ven tendencias para ofrecer apoyo—nunca diagnósticos. Tu registro del {date} está archivado.',
+    trySkillPractice: 'Prueba una práctica rápida de habilidades →',
+    gotIt: 'Entendido',
+    tryQuickSkill: '💡 ¿Pruebas una práctica rápida de habilidades?',
   },
   fr: {
     heroTitle: 'Des moments de vérification qui se transforment en soutien opportun.',
@@ -544,6 +574,21 @@ const translations = {
     counselorDashboard: 'Tableau de bord conseiller',
     weeklyCheckIn: 'Vérification hebdomadaire du bien-être',
     checkInDesc: 'Réflexion de 2 minutes. Cela aide votre école à mieux soutenir les étudiants—pas un diagnostic, juste une vérification de soutien.',
+    heroTitleStudent: 'Une vérification rapide qui peut se transformer en soutien réel.',
+    heroSubtitleStudent: 'Répondez à quelques questions sur votre état d\'esprit. Votre école utilise cela pour remarquer qui pourrait avoir besoin de soutien supplémentaire.',
+    takesMinutes: 'Prend environ 2–3 minutes',
+    answersPrivate: 'Vos réponses ne sont pas partagées avec vos camarades',
+    notATest: 'Pas un test, juste une vérification',
+    startCheckIn: 'Commencer ma vérification',
+    howItWorks: 'Comment ça fonctionne / Confidentialité',
+    parentPortal: 'Portail parent/tuteur',
+    thanksForCheckingIn: 'Merci de vous être enregistré',
+    weekStreak: 'Vous êtes sur une série de {count} semaines ! 🔥',
+    gladYoureHere: 'Nous sommes heureux que vous soyez ici aujourd\'hui, même lors d\'une semaine difficile. 💛',
+    adultsSeeTrends: 'Les adultes voient les tendances pour offrir du soutien—jamais de diagnostics. Votre vérification du {date} est enregistrée.',
+    trySkillPractice: 'Essayez une pratique rapide de compétences →',
+    gotIt: 'Compris',
+    tryQuickSkill: '💡 Essayez une pratique rapide de compétences ?',
   },
 }
 
@@ -1010,7 +1055,7 @@ export function App() {
     })
     .then((apiResponse) => {
       console.log('✅ Check-in submitted to API:', apiResponse)
-      console.log('📊 Check-in saved to database with ID:', apiResponse?.id)
+      console.log('📊 Check-in saved to database with ID:', (apiResponse as any)?.id)
     })
     .catch((error) => {
       console.error('❌ Failed to submit check-in to API:', error)
@@ -1041,15 +1086,15 @@ export function App() {
           {activeView === 'student' ? (
             <>
               <h1>
-                A quick check-in that can turn into real support.
+                {t.heroTitleStudent}
               </h1>
               <p className="lead">
-                Answer a few questions about how you've been feeling. Your school uses this to notice who might need extra support.
+                {t.heroSubtitleStudent}
               </p>
               <ul className="student-bullets">
-                <li>Takes about 2–3 minutes</li>
-                <li>Your answers aren't shared with classmates</li>
-                <li>Not a test – just a check-in</li>
+                <li>{t.takesMinutes}</li>
+                <li>{t.answersPrivate}</li>
+                <li>{t.notATest}</li>
               </ul>
               <div className="cta-group student-cta">
                 <button className="primary large" onClick={() => {
@@ -1057,7 +1102,7 @@ export function App() {
                   const studentSection = document.querySelector('.content')
                   studentSection?.scrollIntoView({ behavior: 'smooth' })
                 }}>
-                  Start my check-in
+                  {t.startCheckIn}
                 </button>
                 <button 
                   className="privacy-link-button" 
@@ -1066,7 +1111,7 @@ export function App() {
                     footer?.scrollIntoView({ behavior: 'smooth' })
                   }}
                 >
-                  How this works / Privacy
+                  {t.howItWorks}
                 </button>
               </div>
               <div className="cta-group" style={{ marginTop: '1.5rem', justifyContent: 'center' }}>
@@ -1074,7 +1119,7 @@ export function App() {
                   {t.counselorDashboard}
                 </button>
                 <button className="ghost" onClick={() => setActiveView('parent')}>
-                  Parent/Caregiver Portal
+                  {t.parentPortal}
                 </button>
               </div>
             </>
@@ -1510,7 +1555,7 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
             ))}
           {checkInCount >= 3 && (
             <div className="card skill-prompt">
-              <p>💡 Try a quick skill practice?</p>
+              <p>{translations.tryQuickSkill}</p>
               <button type="button" className="ghost" onClick={() => setShowSkills(true)}>
                 Explore micro-skills
               </button>
@@ -1634,17 +1679,17 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
             </button>
             <div className="success-icon">✓</div>
             <h2>
-              Thanks for checking in, {lastSaved.studentName}! {engagement.currentStreak > 1 && ` You're on a ${engagement.currentStreak} week streak! 🔥`}
-              {engagement.currentStreak === 1 && ' We\'re glad you\'re here today, even on a hard week. 💛'}
+              {translations.thanksForCheckingIn}, {lastSaved.studentName}! {engagement.currentStreak > 1 && ` ${translations.weekStreak.replace('{count}', engagement.currentStreak.toString())}`}
+              {engagement.currentStreak === 1 && ` ${translations.gladYoureHere}`}
             </h2>
-            <p className="modal-note">Adults see trends to offer support—never diagnoses. Your check-in from {formatDate(lastSaved.createdAt)} is on file.</p>
+            <p className="modal-note">{translations.adultsSeeTrends.replace('{date}', formatDate(lastSaved.createdAt))}</p>
             {checkInCount >= 2 && (
               <button type="button" className="primary" onClick={() => { setShowSkills(true); setSubmitted(false); }}>
-                Try a quick skill practice →
+                {translations.trySkillPractice}
               </button>
             )}
             <button type="button" className="ghost" onClick={() => setSubmitted(false)}>
-              Got it
+              {translations.gotIt}
             </button>
           </div>
         </div>
@@ -4103,6 +4148,10 @@ const PrivacyEthicsFooter = () => {
 
 const PrivacyEthicsModal = ({ onClose }: { onClose: () => void }) => {
   const [activeTab, setActiveTab] = useState<'privacy' | 'visibility' | 'ethics'>('privacy')
+  const stored = localStorage.getItem(PREFERENCES_KEY)
+  const parsed = stored ? JSON.parse(stored) : { language: 'en' }
+  const lang = parsed.language || 'en'
+  const t = translations[lang as keyof typeof translations]
 
   return (
     <div className="skills-overlay" onClick={onClose}>
@@ -4299,7 +4348,7 @@ const PrivacyEthicsModal = ({ onClose }: { onClose: () => void }) => {
           )}
         </div>
         <div className="privacy-footer-actions">
-          <button type="button" className="primary" onClick={onClose}>Got it</button>
+          <button type="button" className="primary" onClick={onClose}>{t.gotIt}</button>
         </div>
       </div>
     </div>
@@ -4622,6 +4671,11 @@ const DailyMicroCheckInModal = ({ onClose, onSubmit }: DailyMicroCheckInModalPro
 }
 
 const AboutAppModal = ({ onClose }: { onClose: () => void }) => {
+  const stored = localStorage.getItem(PREFERENCES_KEY)
+  const parsed = stored ? JSON.parse(stored) : { language: 'en' }
+  const lang = parsed.language || 'en'
+  const t = translations[lang as keyof typeof translations]
+  
   return (
     <div className="skills-overlay" onClick={onClose}>
       <div className="skills-modal" onClick={(e) => e.stopPropagation()}>
@@ -4661,7 +4715,7 @@ const AboutAppModal = ({ onClose }: { onClose: () => void }) => {
             </p>
           </section>
           <div className="form-actions">
-            <button type="button" className="primary" onClick={onClose}>Got it</button>
+            <button type="button" className="primary" onClick={onClose}>{t.gotIt}</button>
           </div>
         </div>
       </div>
@@ -4676,6 +4730,10 @@ type DataSharingModalProps = {
 
 const DataSharingModal = ({ student, onClose }: DataSharingModalProps) => {
   const latest = student?.history.at(-1)
+  const stored = localStorage.getItem(PREFERENCES_KEY)
+  const parsed = stored ? JSON.parse(stored) : { language: 'en' }
+  const lang = parsed.language || 'en'
+  const t = translations[lang as keyof typeof translations]
   
   return (
     <div className="skills-overlay" onClick={onClose}>
@@ -4728,7 +4786,7 @@ const DataSharingModal = ({ student, onClose }: DataSharingModalProps) => {
             </section>
           )}
           <div className="form-actions">
-            <button type="button" className="primary" onClick={onClose}>Got it</button>
+            <button type="button" className="primary" onClick={onClose}>{t.gotIt}</button>
           </div>
         </div>
       </div>
