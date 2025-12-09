@@ -828,27 +828,7 @@ export function App() {
     const mockToken = createMockToken(studentId, 'STUDENT', 'school_1')
     setMockToken(mockToken)
     
-    // Submit to API
-    try {
-      const apiResponse = await studentApi.createCheckIn(studentId, {
-        mood: entry.mood,
-        sleepQuality: entry.sleepQuality,
-        concentration: entry.concentration,
-        energy: entry.energy,
-        worries: entry.worries,
-        burden: entry.burden,
-        notes: entry.notes || undefined,
-        cognitiveScore: entry.cognitiveScore,
-        screenUseImpact: entry.screenUseImpact,
-      })
-      
-      console.log('✅ Check-in submitted to API:', apiResponse)
-    } catch (error) {
-      console.error('❌ Failed to submit check-in to API:', error)
-      // Continue with local storage as fallback
-      // In production, you might want to show an error message to the user
-    }
-    
+    // Create entry first (so we can show success modal even if API fails)
     const newEntry: CheckInEntry = {
       ...entry,
       id: randomId(),
@@ -1011,7 +991,32 @@ export function App() {
       
       return updated
     })
+    
+    // Set lastSaved BEFORE API call so success modal shows immediately
     setLastSaved(newEntry)
+    
+    // Submit to API (non-blocking - don't wait for it)
+    // This runs in the background so the success modal shows immediately
+    studentApi.createCheckIn(studentId, {
+      mood: entry.mood,
+      sleepQuality: entry.sleepQuality,
+      concentration: entry.concentration,
+      energy: entry.energy,
+      worries: entry.worries,
+      burden: entry.burden,
+      notes: entry.notes || undefined,
+      cognitiveScore: entry.cognitiveScore,
+      screenUseImpact: entry.screenUseImpact,
+    })
+    .then((apiResponse) => {
+      console.log('✅ Check-in submitted to API:', apiResponse)
+    })
+    .catch((error) => {
+      console.error('❌ Failed to submit check-in to API:', error)
+      console.error('API URL:', import.meta.env.VITE_API_URL || 'http://localhost:4000')
+      // Continue with local storage as fallback
+      // The check-in is already saved to localStorage, so user still sees success
+    })
   }
 
   // Check for stationId or sessionId in URL (QR code flow)
