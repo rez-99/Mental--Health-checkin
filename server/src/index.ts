@@ -11,12 +11,27 @@ const prisma = new PrismaClient();
 
 // CORS configuration
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+// Allow multiple origins (for dev + production)
+const allowedOrigins = frontendUrl.split(',').map(url => url.trim());
 app.use(
   cors({
-    origin: frontendUrl,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      // Check if origin is in allowed list
+      if (allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed))) {
+        return callback(null, true);
+      }
+      
+      // Log blocked origins for debugging
+      console.warn(`CORS blocked origin: ${origin}. Allowed: ${allowedOrigins.join(', ')}`);
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   })
 );
+console.log(`🌐 CORS configured for origins: ${allowedOrigins.join(', ')}`);
 app.use(express.json());
 
 // ---- Auth types ----
@@ -441,10 +456,11 @@ const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => {
   console.log(`🚀 API server running on port ${PORT}`);
-  console.log(`📊 Frontend URL: ${frontendUrl}`);
+  console.log(`📊 Frontend URL(s): ${allowedOrigins.join(', ')}`);
   console.log(
     `💾 Database: ${process.env.DATABASE_URL ? "Connected" : "Not configured"}`
   );
+  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
 });
 
 // Graceful shutdown

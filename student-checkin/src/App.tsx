@@ -1010,10 +1010,16 @@ export function App() {
     })
     .then((apiResponse) => {
       console.log('✅ Check-in submitted to API:', apiResponse)
+      console.log('📊 Check-in saved to database with ID:', apiResponse?.id)
     })
     .catch((error) => {
       console.error('❌ Failed to submit check-in to API:', error)
-      console.error('API URL:', import.meta.env.VITE_API_URL || 'http://localhost:4000')
+      console.error('🔗 API URL:', import.meta.env.VITE_API_URL || 'http://localhost:4000')
+      console.error('📝 Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      })
       // Continue with local storage as fallback
       // The check-in is already saved to localStorage, so user still sees success
     })
