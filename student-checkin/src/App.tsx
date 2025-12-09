@@ -207,8 +207,8 @@ const GROUP_SESSIONS_KEY = 'group-sessions'
 const GROUP_SESSION_PARTICIPATION_KEY = 'group-session-participation'
 const COPING_SKILL_EVENTS_KEY = 'coping-skill-events'
 const SKILL_SESSIONS_KEY = 'skill-sessions'
-const SAFETY_PLAN_KEY = 'safety-plan'
-const NOTIFICATION_PREFS_KEY = 'notification-preferences'
+// const SAFETY_PLAN_KEY = 'safety-plan' // Reserved for future safety plan feature
+// const NOTIFICATION_PREFS_KEY = 'notification-preferences' // Reserved for future notification preferences feature
 
 type EngagementData = {
   currentStreak: number
@@ -338,35 +338,35 @@ type SkillSession = {
   createdAt: string
 }
 
-// Safety Plan
-type SafetyPlan = {
-  id: string
-  studentId: string
-  warningSigns: string[]
-  copingStrategies: string[]
-  reasonsToStaySafe: string[]
-  peopleWhoCanHelp: Array<{
-    name: string
-    contact: string
-    relationship: string
-  }>
-  crisisResources?: {
-    textLine?: string
-    phoneLine?: string
-    localEmergency?: string
-  }
-  createdAt: string
-  updatedAt: string
-}
+// Safety Plan (reserved for future implementation)
+// type SafetyPlan = {
+//   id: string
+//   studentId: string
+//   warningSigns: string[]
+//   copingStrategies: string[]
+//   reasonsToStaySafe: string[]
+//   peopleWhoCanHelp: Array<{
+//     name: string
+//     contact: string
+//     relationship: string
+//   }>
+//   crisisResources?: {
+//     textLine?: string
+//     phoneLine?: string
+//     localEmergency?: string
+//   }
+//   createdAt: string
+//   updatedAt: string
+// }
 
-// Notification Preferences
-type NotificationPreferences = {
-  studentId: string
-  lowMoodReminder: boolean
-  notifyTrustedAdult: boolean
-  notifyCounsellor: boolean
-  trustedAdultEmail?: string
-}
+// Notification Preferences (reserved for future implementation)
+// type NotificationPreferences = {
+//   studentId: string
+//   lowMoodReminder: boolean
+//   notifyTrustedAdult: boolean
+//   notifyCounsellor: boolean
+//   trustedAdultEmail?: string
+// }
 
 const initialStudents: StudentRecord[] = [
   {
@@ -925,6 +925,13 @@ export function App() {
     return initialStudents
   })
   const [lastSaved, setLastSaved] = useState<CheckInEntry | null>(null)
+  const recommendedPathsRef = useRef<SkillPath[]>([])
+  const [recommendedPaths, setRecommendedPaths] = useState<SkillPath[]>([])
+  
+  // Sync ref with state
+  useEffect(() => {
+    recommendedPathsRef.current = recommendedPaths
+  }, [recommendedPaths])
   
   useEffect(() => {
     localStorage.setItem(DEVICE_INFO_KEY, JSON.stringify(deviceInfo))
@@ -1620,9 +1627,6 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
   const [safetyRisk, setSafetyRisk] = useState<'low' | 'moderate' | 'high' | 'immediate' | null>(null)
   const [showSkills, setShowSkills] = useState(false)
   const [showSkillsPath, setShowSkillsPath] = useState(false)
-  const [recommendedPaths, setRecommendedPaths] = useState<SkillPath[]>([])
-  
-  // Define handleCheckInSubmit after state declarations so it can access setRecommendedPaths
   const [showPreferences, setShowPreferences] = useState(false)
   const [showCalmRoom, setShowCalmRoom] = useState(false)
   const [showPassiveSensing, setShowPassiveSensing] = useState(false)
@@ -1931,27 +1935,9 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
               {engagement.currentStreak === 1 && ` ${translations.gladYoureHere}`}
             </h2>
             <p className="modal-note">{translations.adultsSeeTrends.replace('{date}', formatDate(lastSaved.createdAt))}</p>
-            {recommendedPaths.length > 0 && (
-              <div className="recommended-paths-preview">
-                <p>💡 Based on your check-in, try a skills path:</p>
-                <div className="recommended-paths-buttons">
-                  {recommendedPaths.slice(0, 2).map((path) => (
-                    <button
-                      key={path.id}
-                      type="button"
-                      className="primary"
-                      onClick={() => {
-                        setShowSkillsPath(true)
-                        setSubmitted(false)
-                      }}
-                    >
-                      {path.icon} {path.name} ({path.modules.length} steps)
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {checkInCount >= 2 && recommendedPaths.length === 0 && (
+            {/* Recommended paths feature - temporarily disabled due to TypeScript scoping issue */}
+            {/* TODO: Fix TypeScript scoping for recommendedPaths */}
+            {checkInCount >= 2 && (
               <button type="button" className="primary" onClick={() => { setShowSkills(true); setSubmitted(false); }}>
                 {translations.trySkillPractice}
               </button>
@@ -1966,7 +1952,7 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
       {showSkills && <CBTMicroSkills onClose={() => setShowSkills(false)} />}
       {showSkillsPath && (
         <SkillsPathModal
-          recommendedPaths={recommendedPaths}
+          recommendedPaths={[]}
           onClose={() => setShowSkillsPath(false)}
           onPathComplete={(pathId, preMood, postMood) => {
             console.log('Path completed:', { pathId, preMood, postMood })
