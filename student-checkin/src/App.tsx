@@ -543,6 +543,37 @@ const translations = {
     trySkillPractice: 'Try a quick skill practice →',
     gotIt: 'Got it',
     tryQuickSkill: '💡 Try a quick skill practice?',
+    // Question labels
+    questionMood: 'How was your overall mood this week?',
+    questionMoodShort: 'Overall mood this week?',
+    questionMoodAlt: 'How did you feel most of this week?',
+    questionSleep: 'Sleep quality?',
+    questionSleepAlt: 'How rested did you feel?',
+    questionConcentration: 'Concentration?',
+    questionConcentrationAlt: 'How sharp was your focus?',
+    questionEnergy: 'Energy levels?',
+    questionWorries: 'How heavy did worries feel?',
+    questionBurden: 'Did you feel like a burden?',
+    // Question labels (min/max)
+    moodMin: 'Very low',
+    moodMax: 'Very positive',
+    sleepMin: 'Restless',
+    sleepMax: 'Rested',
+    concentrationMin: 'Scattered',
+    concentrationMax: 'Sharp',
+    energyMin: 'Drained',
+    energyMax: 'Energized',
+    worriesMin: 'Light',
+    worriesMax: 'Heavy',
+    burdenMin: 'Supported',
+    burdenMax: 'Often',
+    // Other UI text
+    schoolWideCheckIn: 'School-wide well-being check-in',
+    forAllStudents: 'This check-in is for all students',
+    universalScreening: 'Universal screening helps us find and support students who need help, even when it\'s not obvious.',
+    runsBeautifully: 'Runs beautifully on:',
+    universalScreeningNote: 'Universal screening for all students. Evidence-based measures (PHQ-A, GAD-7) in youth-friendly language.',
+    universalScreeningResults: 'Universal screening results. Validated measures (PHQ-A, GAD-7) help identify students who need support.',
   },
   es: {
     heroTitle: 'Momentos de registro que se convierten en apoyo oportuno.',
@@ -566,6 +597,37 @@ const translations = {
     trySkillPractice: 'Prueba una práctica rápida de habilidades →',
     gotIt: 'Entendido',
     tryQuickSkill: '💡 ¿Pruebas una práctica rápida de habilidades?',
+    // Question labels
+    questionMood: '¿Cómo estuvo tu estado de ánimo general esta semana?',
+    questionMoodShort: '¿Estado de ánimo general esta semana?',
+    questionMoodAlt: '¿Cómo te sentiste la mayor parte de esta semana?',
+    questionSleep: '¿Calidad del sueño?',
+    questionSleepAlt: '¿Qué tan descansado te sentiste?',
+    questionConcentration: '¿Concentración?',
+    questionConcentrationAlt: '¿Qué tan aguda estuvo tu concentración?',
+    questionEnergy: '¿Niveles de energía?',
+    questionWorries: '¿Qué tan pesadas se sintieron las preocupaciones?',
+    questionBurden: '¿Te sentiste como una carga?',
+    // Question labels (min/max)
+    moodMin: 'Muy bajo',
+    moodMax: 'Muy positivo',
+    sleepMin: 'Inquieto',
+    sleepMax: 'Descansado',
+    concentrationMin: 'Disperso',
+    concentrationMax: 'Agudo',
+    energyMin: 'Agotado',
+    energyMax: 'Energizado',
+    worriesMin: 'Ligero',
+    worriesMax: 'Pesado',
+    burdenMin: 'Apoyado',
+    burdenMax: 'A menudo',
+    // Other UI text
+    schoolWideCheckIn: 'Registro de bienestar para toda la escuela',
+    forAllStudents: 'Este registro es para todos los estudiantes',
+    universalScreening: 'El registro universal nos ayuda a encontrar y apoyar a los estudiantes que necesitan ayuda, incluso cuando no es obvio.',
+    runsBeautifully: 'Funciona perfectamente en:',
+    universalScreeningNote: 'Registro universal para todos los estudiantes. Medidas basadas en evidencia (PHQ-A, GAD-7) en lenguaje amigable para jóvenes.',
+    universalScreeningResults: 'Resultados del registro universal. Medidas validadas (PHQ-A, GAD-7) ayudan a identificar estudiantes que necesitan apoyo.',
   },
   fr: {
     heroTitle: 'Des moments de vérification qui se transforment en soutien opportun.',
@@ -589,6 +651,37 @@ const translations = {
     trySkillPractice: 'Essayez une pratique rapide de compétences →',
     gotIt: 'Compris',
     tryQuickSkill: '💡 Essayez une pratique rapide de compétences ?',
+    // Question labels
+    questionMood: 'Comment était votre humeur générale cette semaine ?',
+    questionMoodShort: 'Humeur générale cette semaine ?',
+    questionMoodAlt: 'Comment vous êtes-vous senti la plupart de cette semaine ?',
+    questionSleep: 'Qualité du sommeil ?',
+    questionSleepAlt: 'À quel point vous êtes-vous senti reposé ?',
+    questionConcentration: 'Concentration ?',
+    questionConcentrationAlt: 'À quel point votre concentration était-elle vive ?',
+    questionEnergy: 'Niveaux d\'énergie ?',
+    questionWorries: 'À quel point les inquiétudes se sont-elles senties lourdes ?',
+    questionBurden: 'Vous êtes-vous senti comme un fardeau ?',
+    // Question labels (min/max)
+    moodMin: 'Très bas',
+    moodMax: 'Très positif',
+    sleepMin: 'Agité',
+    sleepMax: 'Reposé',
+    concentrationMin: 'Dispersé',
+    concentrationMax: 'Vif',
+    energyMin: 'Épuisé',
+    energyMax: 'Énergisé',
+    worriesMin: 'Léger',
+    worriesMax: 'Lourd',
+    burdenMin: 'Soutenu',
+    burdenMax: 'Souvent',
+    // Other UI text
+    schoolWideCheckIn: 'Vérification du bien-être à l\'échelle de l\'école',
+    forAllStudents: 'Cette vérification est pour tous les étudiants',
+    universalScreening: 'Le dépistage universel nous aide à trouver et soutenir les étudiants qui ont besoin d\'aide, même quand ce n\'est pas évident.',
+    runsBeautifully: 'Fonctionne parfaitement sur :',
+    universalScreeningNote: 'Dépistage universel pour tous les étudiants. Mesures fondées sur des preuves (PHQ-A, GAD-7) dans un langage adapté aux jeunes.',
+    universalScreeningResults: 'Résultats du dépistage universel. Mesures validées (PHQ-A, GAD-7) aident à identifier les étudiants qui ont besoin de soutien.',
   },
 }
 
@@ -1126,15 +1219,15 @@ export function App() {
           ) : (
             <>
               {(activeView === 'staff' || activeView === 'parent') && (
-                <p className="eyebrow">School-wide well-being check-in</p>
+                <p className="eyebrow">{t.schoolWideCheckIn}</p>
               )}
               <h1>
                 {t.heroTitle.split(' ').slice(0, -3).join(' ')}
                 <span> {t.heroTitle.split(' ').slice(-3).join(' ')}</span>
               </h1>
               <p className="lead">
-                {t.heroSubtitle} <strong>This check-in is for all students</strong>—not just those who seem to be struggling. 
-                Universal screening helps us find and support students who need help, even when it's not obvious.
+                {t.heroSubtitle} <strong>{t.forAllStudents}</strong>—not just those who seem to be struggling. 
+                {t.universalScreening}
               </p>
               <div className="cta-group">
                 <button className="ghost" onClick={() => setActiveView('student')}>
@@ -1152,13 +1245,13 @@ export function App() {
         </div>
         {activeView !== 'student' && (
           <div className="hero__card">
-            <p>Runs beautifully on:</p>
+            <p>{t.runsBeautifully}</p>
             <ul>
               <li>Any browser (Chrome, Safari, Edge)</li>
               <li>Phones & tablets (Android + iOS)</li>
               <li>School Chromebooks</li>
             </ul>
-            <p className="mini-note">Universal screening for all students. Evidence-based measures (PHQ-A, GAD-7) in youth-friendly language. 
+            <p className="mini-note">{t.universalScreeningNote} 
             Built for long-term engagement with micro-skills that help. Tracks multi-year trajectories to show long-term outcomes.</p>
             <div className="ethics-badge">
               <span>🔒 Privacy-by-design</span>
@@ -1209,7 +1302,7 @@ export function App() {
             deviceInfo={deviceInfo}
           />
         ) : activeView === 'staff' ? (
-          <CounselorDashboard students={students} onStudentsUpdate={setStudents} />
+          <CounselorDashboard students={students} onStudentsUpdate={setStudents} translations={t} />
         ) : activeView === 'parent' ? (
           <ParentPortal students={students} />
         ) : null}
@@ -1353,6 +1446,18 @@ const CalmRoomQRScanner = ({ onSessionComplete, onClose }: CalmRoomQRScannerProp
 }
 
 const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferencesChange, resources, translations, onCalmRoomSession, deviceInfo }: StudentCheckInProps) => {
+  // Create translated slider config based on current language
+  const getTranslatedSliderConfig = () => {
+    return [
+      { key: 'mood', label: translations.questionMood, icon: '😊', emoji: ['😢', '😐', '🙂', '😊', '😄'], minLabel: translations.moodMin, maxLabel: translations.moodMax },
+      { key: 'sleepQuality', label: translations.questionSleep, icon: '😴', emoji: ['😴', '😑', '😌', '😊', '✨'], minLabel: translations.sleepMin, maxLabel: translations.sleepMax },
+      { key: 'concentration', label: translations.questionConcentration, icon: '🎯', emoji: ['💭', '🤔', '👀', '🎯', '⚡'], minLabel: translations.concentrationMin, maxLabel: translations.concentrationMax },
+      { key: 'energy', label: translations.questionEnergy, icon: '⚡', emoji: ['😴', '😑', '😊', '⚡', '🚀'], minLabel: translations.energyMin, maxLabel: translations.energyMax },
+      { key: 'worries', label: translations.questionWorries, icon: '💭', emoji: ['😌', '😊', '😐', '😟', '😰'], minLabel: translations.worriesMin, maxLabel: translations.worriesMax },
+      { key: 'burden', label: translations.questionBurden, icon: '🤝', emoji: ['💚', '👍', '😐', '😔', '😞'], minLabel: translations.burdenMin, maxLabel: translations.burdenMax },
+    ]
+  }
+  
   const [form, setForm] = useState({
     studentName: '',
     mood: 3,
@@ -1416,17 +1521,18 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
   
   // Evolving questions based on check-in count
   const getEvolvingQuestions = () => {
-    if (checkInCount < 2) return sliderConfig
+    const baseConfig = getTranslatedSliderConfig()
+    if (checkInCount < 2) return baseConfig
     if (checkInCount < 5) {
-      return sliderConfig.map((q, i) => {
-        if (i === 0) return { ...q, label: 'How did you feel most of this week?' }
-        if (i === 2) return { ...q, label: 'How sharp was your focus?' }
+      return baseConfig.map((q, i) => {
+        if (i === 0) return { ...q, label: translations.questionMoodAlt }
+        if (i === 2) return { ...q, label: translations.questionConcentrationAlt }
         return q
       })
     }
-    return sliderConfig.map((q, i) => {
-      if (i === 0) return { ...q, label: 'Overall mood this week?' }
-      if (i === 1) return { ...q, label: 'How rested did you feel?' }
+    return baseConfig.map((q, i) => {
+      if (i === 0) return { ...q, label: translations.questionMoodShort }
+      if (i === 1) return { ...q, label: translations.questionSleepAlt }
       return q
     })
   }
@@ -1551,7 +1657,7 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
         <>
           <div className="card-grid">
             {dynamicQuestions.slice(0, 3).map((slider) => (
-              <SliderCard key={slider.key} config={slider as typeof sliderConfig[number]} value={form[slider.key]} onChange={handleSliderChange} />
+              <SliderCard key={slider.key} config={slider as any} value={form[slider.key as keyof typeof form] as number} onChange={handleSliderChange} />
             ))}
           {checkInCount >= 3 && (
             <div className="card skill-prompt">
@@ -1578,7 +1684,7 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
       {step === 1 && (
         <div className="card-grid">
           {dynamicQuestions.slice(3).map((slider) => (
-            <SliderCard key={slider.key} config={slider as typeof sliderConfig[number]} value={form[slider.key]} onChange={handleSliderChange} />
+            <SliderCard key={slider.key} config={slider as any} value={form[slider.key as keyof typeof form] as number} onChange={handleSliderChange} />
           ))}
           <div className="card">
             <label>Anything else you want adults to know? (optional)</label>
@@ -1917,6 +2023,7 @@ const CognitiveMiniTask = ({ score, onScoreChange }: CognitiveMiniTaskProps) => 
 type CounselorDashboardProps = {
   students: StudentRecord[]
   onStudentsUpdate: (students: StudentRecord[]) => void
+  translations: typeof translations.en
 }
 
 // Future: Dashboard view switching
@@ -2020,7 +2127,7 @@ const StartGroupSessionButton = () => {
   )
 }
 
-const CounselorDashboard = ({ students, onStudentsUpdate }: CounselorDashboardProps) => {
+const CounselorDashboard = ({ students, onStudentsUpdate, translations }: CounselorDashboardProps) => {
   const [selectedId, setSelectedId] = useState(students[0]?.id ?? '')
   const [activeView, setActiveView] = useState<'overview' | 'triage' | 'audit'>('overview')
   const [currentRole] = useState<UserRole>('counselor')
@@ -2118,7 +2225,7 @@ const CounselorDashboard = ({ students, onStudentsUpdate }: CounselorDashboardPr
     <section className="panel">
       <div className="panel__header">
         <h2>Counselor & school dashboard</h2>
-        <p>Universal screening results. Validated measures (PHQ-A, GAD-7) help identify students who need support. 
+        <p>{translations.universalScreeningResults} 
         Clear referral workflow: flagged → counselor notified → structured follow-up.</p>
         <div className="staff-reminder" style={{ 
           background: '#fef3c7', 
