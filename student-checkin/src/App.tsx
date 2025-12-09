@@ -66,6 +66,40 @@ const SKILL_PATHS: SkillPathRecommendation[] = [
   },
 ]
 
+// Suggested actions for each flag type shown on the counsellor dashboard
+const FLAG_SUGGESTED_ACTIONS: Record<string, string[]> = {
+  CRISIS_INDICATOR: [
+    'Follow your school\'s crisis/safety protocol immediately.',
+    'Notify the designated safeguarding lead or administrator.',
+    'Consider contacting parents/guardians according to school policy.',
+  ],
+  HIGH_BURDEN: [
+    'Invite the student for a brief one-to-one check-in.',
+    'Offer a short skills path (e.g., "Low Mood Reset" or similar).',
+    'Check whether academic or family stress is piling up.',
+  ],
+  HIGH_WORRIES: [
+    'Ask about specific worries (school, friends, home, online).',
+    'Offer an anxiety skills path (e.g., "Calm Worries").',
+    'Teach or review a simple grounding / breathing skill.',
+  ],
+  SUSTAINED_LOW_MOOD_SLEEP: [
+    'Check in about sleep patterns.',
+    'Consider "Sleep Reset" or "Low Mood Reset" program.',
+    'Review recent check-ins for context.',
+  ],
+  RAPID_DECLINE: [
+    'Review recent check-ins and any major changes reported.',
+    'Schedule a follow up within a week to see if things stabilise.',
+    'Consider consulting with a senior mental-health lead if decline continues.',
+  ],
+  ENGAGEMENT_DROP: [
+    'Check in about barriers to using the app (busy, forgetful, worried).',
+    'Re-explain that check-ins are for support, not punishment.',
+    'Offer to complete the next check-in together in person.',
+  ],
+}
+
 type FollowUpStatus = 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'no_action_needed'
 
 type FollowUpRecord = {
@@ -1540,45 +1574,71 @@ export function App() {
                         <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Type</th>
                         <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Severity</th>
                         <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Created</th>
+                        <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Suggested actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {flags.map((flag: any) => (
-                        <tr key={flag.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '0.5rem 0.75rem' }}>
-                            {flag.student?.displayName ?? flag.student_id}
-                            {flag.student?.grade && (
-                              <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#64748b' }}>
-                                Grade {flag.student.grade}
+                      {flags.map((flag: any) => {
+                        const actions = FLAG_SUGGESTED_ACTIONS[flag.type] ?? []
+                        
+                        return (
+                          <tr key={flag.id} style={{ borderTop: '1px solid #e2e8f0' }}>
+                            <td style={{ padding: '0.5rem 0.75rem' }}>
+                              {flag.student?.displayName ?? flag.student_id}
+                              {flag.student?.grade && (
+                                <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#64748b' }}>
+                                  Grade {flag.student.grade}
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.75rem' }}>
+                              {flag.type.replace(/_/g, ' ')}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.75rem' }}>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                borderRadius: '9999px',
+                                padding: '0.125rem 0.5rem',
+                                fontSize: '0.75rem',
+                                fontWeight: 500,
+                                ...(flag.severity === 'high'
+                                  ? { backgroundColor: '#fee2e2', color: '#991b1b' }
+                                  : flag.severity === 'moderate'
+                                  ? { backgroundColor: '#fef3c7', color: '#92400e' }
+                                  : { backgroundColor: '#d1fae5', color: '#065f46' }
+                                )
+                              }}>
+                                {flag.severity}
                               </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '0.5rem 0.75rem' }}>
-                            {flag.type.replace(/_/g, ' ')}
-                          </td>
-                          <td style={{ padding: '0.5rem 0.75rem' }}>
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              borderRadius: '9999px',
-                              padding: '0.125rem 0.5rem',
-                              fontSize: '0.75rem',
-                              fontWeight: 500,
-                              ...(flag.severity === 'high'
-                                ? { backgroundColor: '#fee2e2', color: '#991b1b' }
-                                : flag.severity === 'moderate'
-                                ? { backgroundColor: '#fef3c7', color: '#92400e' }
-                                : { backgroundColor: '#d1fae5', color: '#065f46' }
-                              )
-                            }}>
-                              {flag.severity}
-                            </span>
-                          </td>
-                          <td style={{ padding: '0.5rem 0.75rem', color: '#64748b' }}>
-                            {new Date(flag.createdAt).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.75rem', color: '#64748b' }}>
+                              {new Date(flag.createdAt).toLocaleString()}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.75rem', verticalAlign: 'top' }}>
+                              {actions.length === 0 ? (
+                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                  No suggestions yet
+                                </span>
+                              ) : (
+                                <ul style={{
+                                  listStyle: 'disc',
+                                  paddingLeft: '1rem',
+                                  fontSize: '0.75rem',
+                                  color: '#475569',
+                                  margin: 0,
+                                }}>
+                                  {actions.map((action, index) => (
+                                    <li key={index} style={{ marginBottom: '0.25rem' }}>
+                                      {action}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
