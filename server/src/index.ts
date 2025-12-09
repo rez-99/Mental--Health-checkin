@@ -203,6 +203,173 @@ function calculateSafetyRisk(phqScore: number, gadScore: number): string {
   return "low";
 }
 
+// Flag Engine: Detect early warning patterns
+async function checkForFlags(studentId: string, checkIn: any) {
+  try {
+    // Get last 3 check-ins for pattern detection
+    const recentCheckIns = await prisma.checkIn.findMany({
+      where: { studentId },
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+    });
+
+    // Rule 1: 3 days in a row with mood ≤ 2 + sleep ≤ 2
+    if (recentCheckIns.length >= 3) {
+      const allLow = recentCheckIns.every(
+        (c) => c.mood <= 2 && c.sleepQuality <= 2
+      );
+      if (allLow) {
+        const existing = await prisma.flag.findUnique({
+          where: {
+            studentId_type: {
+              studentId,
+              type: 'SUSTAINED_LOW_MOOD_SLEEP',
+            },
+          },
+        });
+        if (existing) {
+          await prisma.flag.update({
+            where: { id: existing.id },
+            data: { createdAt: new Date() },
+          });
+        } else {
+          await prisma.flag.create({
+            data: {
+              studentId,
+              type: 'SUSTAINED_LOW_MOOD_SLEEP',
+              severity: 'moderate',
+            },
+          });
+        }
+        console.log(`🚩 Flag created: SUSTAINED_LOW_MOOD_SLEEP for student ${studentId}`);
+      }
+    }
+
+    // Rule 2: Rapid decline (2+ point drop in mood, energy, or sleep)
+    if (recentCheckIns.length >= 2) {
+      const latest = recentCheckIns[0];
+      const previous = recentCheckIns[1];
+      
+      const moodDrop = previous.mood - latest.mood >= 2;
+      const energyDrop = previous.energy - latest.energy >= 2;
+      const sleepDrop = previous.sleepQuality - latest.sleepQuality >= 2;
+      
+      if (moodDrop || energyDrop || sleepDrop) {
+        const existing = await prisma.flag.findUnique({
+          where: {
+            studentId_type: {
+              studentId,
+              type: 'RAPID_DECLINE',
+            },
+          },
+        });
+        if (existing) {
+          await prisma.flag.update({
+            where: { id: existing.id },
+            data: { createdAt: new Date() },
+          });
+        } else {
+          await prisma.flag.create({
+            data: {
+              studentId,
+              type: 'RAPID_DECLINE',
+              severity: 'moderate',
+            },
+          });
+        }
+        console.log(`🚩 Flag created: RAPID_DECLINE for student ${studentId}`);
+      }
+    }
+
+    // Rule 3: High worries (worries ≥ 4)
+    if (checkIn.worries >= 4) {
+      const existing = await prisma.flag.findUnique({
+        where: {
+          studentId_type: {
+            studentId,
+            type: 'HIGH_WORRIES',
+          },
+        },
+      });
+      if (existing) {
+        await prisma.flag.update({
+          where: { id: existing.id },
+          data: { createdAt: new Date() },
+        });
+      } else {
+        await prisma.flag.create({
+          data: {
+            studentId,
+            type: 'HIGH_WORRIES',
+            severity: 'low',
+          },
+        });
+      }
+    }
+
+    // Rule 4: High burden (burden ≥ 4)
+    if (checkIn.burden >= 4) {
+      const existing = await prisma.flag.findUnique({
+        where: {
+          studentId_type: {
+            studentId,
+            type: 'HIGH_BURDEN',
+          },
+        },
+      });
+      if (existing) {
+        await prisma.flag.update({
+          where: { id: existing.id },
+          data: { createdAt: new Date() },
+        });
+      } else {
+        await prisma.flag.create({
+          data: {
+            studentId,
+            type: 'HIGH_BURDEN',
+            severity: 'moderate',
+          },
+        });
+      }
+    }
+
+    // Rule 5: Crisis indicator (PHQ ≥ 15 or GAD ≥ 15 or safetyRisk === 'high')
+    if (
+      checkIn.phqScore >= 15 ||
+      checkIn.gadScore >= 15 ||
+      checkIn.safetyRisk === 'high' ||
+      checkIn.safetyRisk === 'immediate'
+    ) {
+      const existing = await prisma.flag.findUnique({
+        where: {
+          studentId_type: {
+            studentId,
+            type: 'CRISIS_INDICATOR',
+          },
+        },
+      });
+      if (existing) {
+        await prisma.flag.update({
+          where: { id: existing.id },
+          data: { createdAt: new Date() },
+        });
+      } else {
+        await prisma.flag.create({
+          data: {
+            studentId,
+            type: 'CRISIS_INDICATOR',
+            severity: 'high',
+          },
+        });
+      }
+      console.log(`🚨 CRISIS FLAG: CRISIS_INDICATOR for student ${studentId}`);
+    }
+  } catch (error) {
+    console.error('Error checking for flags:', error);
+    // Don't throw - flag checking shouldn't break check-in creation
+  }
+}
+
 // ---- Routes ----
 
 // Health check
@@ -341,6 +508,11 @@ app.post(
             riskLevel,
           } as any,
         },
+      });
+
+      // Check for flags (non-blocking - runs in background)
+      checkForFlags(studentId, checkIn).catch((err) => {
+        console.error('Flag checking error (non-fatal):', err);
       });
 
       return res.status(201).json(checkIn);

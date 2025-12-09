@@ -56,6 +56,10 @@ model Student {
   school    School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   checkIns  CheckIn[]
   auditLogs AuditLog[]
+  skillSessions SkillSession[]
+  flags     Flag[]
+  safetyPlan SafetyPlan?
+  notificationPreference StudentNotificationPreference?
 
   @@map("students")
 }
@@ -134,5 +138,97 @@ enum AuditType {
   VIEW_DASHBOARD
   ADD_NOTE
   FOLLOW_STUDENT
+}
+
+// Skills Paths System
+model SkillPath {
+  id          String   @id @default(uuid())
+  name        String   // "Feeling anxious", "Feeling sad", "Can't sleep", "Angry / overwhelmed"
+  description String?  @db.Text
+  icon        String?  // emoji
+  modules     Json     // Array of module definitions
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  sessions    SkillSession[]
+  
+  @@map("skill_paths")
+}
+
+model SkillSession {
+  id          String   @id @default(uuid())
+  studentId   String   @map("student_id")
+  pathId      String   @map("path_id")
+  pathName    String   @map("path_name") // Denormalized for easy queries
+  preMood     Int?     @map("pre_mood") // 1-5
+  postMood    Int?     @map("post_mood") // 1-5
+  completedAt DateTime @map("completed_at")
+  createdAt   DateTime @default(now())
+  
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  path   SkillPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  
+  @@index([studentId])
+  @@index([completedAt])
+  @@map("skill_sessions")
+}
+
+// Early Warning Flags
+model Flag {
+  id          String   @id @default(uuid())
+  studentId   String   @map("student_id")
+  type        FlagType
+  severity    String   // "low" | "moderate" | "high"
+  resolvedAt  DateTime? @map("resolved_at")
+  createdAt   DateTime @default(now())
+  
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  @@unique([studentId, type])
+  @@index([studentId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("flags")
+}
+
+enum FlagType {
+  SUSTAINED_LOW_MOOD_SLEEP
+  RAPID_DECLINE
+  HIGH_WORRIES
+  HIGH_BURDEN
+  CRISIS_INDICATOR
+}
+
+// Notification Preferences
+model StudentNotificationPreference {
+  id                String   @id @default(uuid())
+  studentId         String   @unique @map("student_id")
+  lowMoodReminder   Boolean  @default(true) @map("low_mood_reminder")
+  notifyTrustedAdult Boolean @default(false) @map("notify_trusted_adult")
+  notifyCounsellor  Boolean  @default(false) @map("notify_counsellor")
+  trustedAdultEmail String?  @map("trusted_adult_email")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  @@map("student_notification_preferences")
+}
+
+// Safety Plans
+model SafetyPlan {
+  id                String   @id @default(uuid())
+  studentId         String   @unique @map("student_id")
+  warningSigns      String[] @map("warning_signs") // Array of strings
+  copingStrategies  String[] @map("coping_strategies")
+  reasonsToStaySafe String[] @map("reasons_to_stay_safe")
+  peopleWhoCanHelp  Json     @map("people_who_can_help") // [{name, contact, relationship}]
+  crisisResources   Json?    @map("crisis_resources") // Local crisis lines
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  @@map("safety_plans")
 }
 

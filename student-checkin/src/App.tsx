@@ -206,6 +206,9 @@ const THREAT_DETECTION_KEY = 'threat-detection'
 const GROUP_SESSIONS_KEY = 'group-sessions'
 const GROUP_SESSION_PARTICIPATION_KEY = 'group-session-participation'
 const COPING_SKILL_EVENTS_KEY = 'coping-skill-events'
+const SKILL_SESSIONS_KEY = 'skill-sessions'
+const SAFETY_PLAN_KEY = 'safety-plan'
+const NOTIFICATION_PREFS_KEY = 'notification-preferences'
 
 type EngagementData = {
   currentStreak: number
@@ -297,6 +300,72 @@ type CulturalResource = {
   text?: string
   website?: string
   available24h: boolean
+}
+
+// Skills Paths System
+type SkillPathModule = {
+  id: string
+  type: 'psychoeducation' | 'breathing' | 'thought-challenging' | 'action-plan'
+  title: string
+  content: string[]
+  duration: string
+}
+
+type SkillPath = {
+  id: string
+  name: string
+  description: string
+  icon: string
+  modules: SkillPathModule[]
+  recommendedFor?: {
+    mood?: number // ≤ this value
+    worries?: number // ≥ this value
+    sleepQuality?: number // ≤ this value
+    energy?: number // ≤ this value
+    concentration?: number // ≤ this value
+    burden?: number // ≥ this value
+  }
+}
+
+type SkillSession = {
+  id: string
+  studentId: string
+  pathId: string
+  pathName: string
+  preMood: number | null
+  postMood: number | null
+  completedAt: string
+  createdAt: string
+}
+
+// Safety Plan
+type SafetyPlan = {
+  id: string
+  studentId: string
+  warningSigns: string[]
+  copingStrategies: string[]
+  reasonsToStaySafe: string[]
+  peopleWhoCanHelp: Array<{
+    name: string
+    contact: string
+    relationship: string
+  }>
+  crisisResources?: {
+    textLine?: string
+    phoneLine?: string
+    localEmergency?: string
+  }
+  createdAt: string
+  updatedAt: string
+}
+
+// Notification Preferences
+type NotificationPreferences = {
+  studentId: string
+  lowMoodReminder: boolean
+  notifyTrustedAdult: boolean
+  notifyCounsellor: boolean
+  trustedAdultEmail?: string
 }
 
 const initialStudents: StudentRecord[] = [
@@ -1196,6 +1265,12 @@ export function App() {
     // Set lastSaved BEFORE API call so success modal shows immediately
     setLastSaved(newEntry)
     
+    // Recommend skill paths based on check-in results
+    const paths = recommendSkillPaths(newEntry)
+    if (paths.length > 0) {
+      setRecommendedPaths(paths)
+    }
+    
     // Submit to API (non-blocking - don't wait for it)
     // This runs in the background so the success modal shows immediately
     studentApi.createCheckIn(studentId, {
@@ -1544,6 +1619,10 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
   const [showCrisisResponse, setShowCrisisResponse] = useState(false)
   const [safetyRisk, setSafetyRisk] = useState<'low' | 'moderate' | 'high' | 'immediate' | null>(null)
   const [showSkills, setShowSkills] = useState(false)
+  const [showSkillsPath, setShowSkillsPath] = useState(false)
+  const [recommendedPaths, setRecommendedPaths] = useState<SkillPath[]>([])
+  
+  // Define handleCheckInSubmit after state declarations so it can access setRecommendedPaths
   const [showPreferences, setShowPreferences] = useState(false)
   const [showCalmRoom, setShowCalmRoom] = useState(false)
   const [showPassiveSensing, setShowPassiveSensing] = useState(false)
@@ -1852,7 +1931,27 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
               {engagement.currentStreak === 1 && ` ${translations.gladYoureHere}`}
             </h2>
             <p className="modal-note">{translations.adultsSeeTrends.replace('{date}', formatDate(lastSaved.createdAt))}</p>
-            {checkInCount >= 2 && (
+            {recommendedPaths.length > 0 && (
+              <div className="recommended-paths-preview">
+                <p>💡 Based on your check-in, try a skills path:</p>
+                <div className="recommended-paths-buttons">
+                  {recommendedPaths.slice(0, 2).map((path) => (
+                    <button
+                      key={path.id}
+                      type="button"
+                      className="primary"
+                      onClick={() => {
+                        setShowSkillsPath(true)
+                        setSubmitted(false)
+                      }}
+                    >
+                      {path.icon} {path.name} ({path.modules.length} steps)
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {checkInCount >= 2 && recommendedPaths.length === 0 && (
               <button type="button" className="primary" onClick={() => { setShowSkills(true); setSubmitted(false); }}>
                 {translations.trySkillPractice}
               </button>
@@ -1865,6 +1964,16 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
       )}
       
       {showSkills && <CBTMicroSkills onClose={() => setShowSkills(false)} />}
+      {showSkillsPath && (
+        <SkillsPathModal
+          recommendedPaths={recommendedPaths}
+          onClose={() => setShowSkillsPath(false)}
+          onPathComplete={(pathId, preMood, postMood) => {
+            console.log('Path completed:', { pathId, preMood, postMood })
+            // In production, send to backend API
+          }}
+        />
+      )}
       {showPreferences && (
         <PreferencesModal
           preferences={preferences}
@@ -3294,6 +3403,511 @@ const CBTMicroSkills = ({ onClose }: CBTMicroSkillsProps) => {
                 {bookmarks.includes(selectedSkill!.id) ? '⭐ Bookmarked' : '☆ Bookmark this skill'}
               </button>
             </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Skills Paths System
+const skillPaths: SkillPath[] = [
+  {
+    id: 'anxiety',
+    name: 'Feeling anxious',
+    description: 'Learn to manage worry and anxiety with evidence-based techniques.',
+    icon: '😰',
+    recommendedFor: { mood: 2, worries: 4 },
+    modules: [
+      {
+        id: 'anxiety-1',
+        type: 'psychoeducation',
+        title: 'What is anxiety?',
+        duration: '2 min',
+        content: [
+          'Anxiety is your body\'s natural response to stress or danger.',
+          'It\'s normal to feel anxious sometimes—everyone does.',
+          'Anxiety becomes a problem when it\'s too intense or lasts too long.',
+          'The good news: You can learn skills to manage it.',
+        ],
+      },
+      {
+        id: 'anxiety-2',
+        type: 'breathing',
+        title: '4-7-8 Breathing',
+        duration: '3 min',
+        content: [
+          'Breathe in through your nose for 4 counts',
+          'Hold your breath for 7 counts',
+          'Breathe out through your mouth for 8 counts',
+          'Repeat 4 times',
+          'This activates your body\'s relaxation response.',
+        ],
+      },
+      {
+        id: 'anxiety-3',
+        type: 'thought-challenging',
+        title: 'What would you tell a friend?',
+        duration: '3 min',
+        content: [
+          'Think of a worry you\'re having right now.',
+          'Imagine your best friend came to you with this same worry.',
+          'What would you tell them? Write it down.',
+          'Now, can you apply that same kindness to yourself?',
+          'Often, we\'re harder on ourselves than we are on others.',
+        ],
+      },
+      {
+        id: 'anxiety-4',
+        type: 'action-plan',
+        title: 'Tonight I\'ll try...',
+        duration: '1 min',
+        content: [
+          'Pick one small thing you can do tonight to help with anxiety:',
+          '• Do 4-7-8 breathing before bed',
+          '• Write down 3 things you\'re grateful for',
+          '• Put your phone away 1 hour before sleep',
+          '• Talk to someone you trust about how you\'re feeling',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'sadness',
+    name: 'Feeling sad',
+    description: 'Understand sadness and build skills to feel better.',
+    icon: '😢',
+    recommendedFor: { mood: 2, burden: 4 },
+    modules: [
+      {
+        id: 'sadness-1',
+        type: 'psychoeducation',
+        title: 'Why do we feel sad?',
+        duration: '2 min',
+        content: [
+          'Sadness is a normal human emotion—everyone feels it sometimes.',
+          'It can be triggered by loss, disappointment, or stress.',
+          'Feeling sad doesn\'t mean something is wrong with you.',
+          'It\'s okay to feel sad, and it\'s also okay to want to feel better.',
+        ],
+      },
+      {
+        id: 'sadness-2',
+        type: 'breathing',
+        title: 'Box Breathing',
+        duration: '2 min',
+        content: [
+          'Breathe in for 4 counts',
+          'Hold for 4 counts',
+          'Breathe out for 4 counts',
+          'Hold for 4 counts',
+          'Repeat 4 times',
+        ],
+      },
+      {
+        id: 'sadness-3',
+        type: 'thought-challenging',
+        title: 'Challenge unhelpful thoughts',
+        duration: '3 min',
+        content: [
+          'Notice a thought like "I always mess up" or "Nothing will get better"',
+          'Ask: What evidence supports this?',
+          'Ask: What evidence contradicts it?',
+          'Reframe: "I sometimes struggle, but I also have successes"',
+          'Remember: Thoughts are not facts.',
+        ],
+      },
+      {
+        id: 'sadness-4',
+        type: 'action-plan',
+        title: 'Tonight I\'ll try...',
+        duration: '1 min',
+        content: [
+          'Pick one small thing you can do tonight:',
+          '• Call or text someone you care about',
+          '• Do something kind for yourself (warm shower, favorite music)',
+          '• Write down one thing you\'re grateful for',
+          '• Go for a 10-minute walk outside',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'sleep',
+    name: 'Can\'t sleep',
+    description: 'Build better sleep habits for restful nights.',
+    icon: '😴',
+    recommendedFor: { sleepQuality: 2 },
+    modules: [
+      {
+        id: 'sleep-1',
+        type: 'psychoeducation',
+        title: 'Why sleep matters',
+        duration: '2 min',
+        content: [
+          'Sleep helps your brain process emotions and memories.',
+          'Poor sleep can make stress and mood worse.',
+          'Good sleep habits can improve your mood and energy.',
+          'Small changes can make a big difference.',
+        ],
+      },
+      {
+        id: 'sleep-2',
+        type: 'breathing',
+        title: 'Progressive Muscle Relaxation',
+        duration: '5 min',
+        content: [
+          'Lie down comfortably',
+          'Tense your toes for 5 seconds, then relax',
+          'Move up: tense and relax each muscle group',
+          'Legs → stomach → arms → shoulders → face',
+          'Focus on the feeling of relaxation',
+        ],
+      },
+      {
+        id: 'sleep-3',
+        type: 'thought-challenging',
+        title: 'Sleep thoughts',
+        duration: '2 min',
+        content: [
+          'If you\'re worrying in bed, try this:',
+          'Write down your worries on paper (not your phone)',
+          'Tell yourself: "I\'ll deal with this tomorrow"',
+          'Focus on your breathing instead of your thoughts',
+          'Remember: Rest is still valuable even if you\'re not fully asleep.',
+        ],
+      },
+      {
+        id: 'sleep-4',
+        type: 'action-plan',
+        title: 'Tonight I\'ll try...',
+        duration: '1 min',
+        content: [
+          'Pick one sleep habit to try:',
+          '• Go to bed at the same time tonight',
+          '• Put your phone away 1 hour before bed',
+          '• Keep your room cool and dark',
+          '• Avoid caffeine after 2pm',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'anger',
+    name: 'Angry / overwhelmed',
+    description: 'Manage anger and overwhelm with healthy coping skills.',
+    icon: '😠',
+    recommendedFor: { energy: 2, concentration: 2 },
+    modules: [
+      {
+        id: 'anger-1',
+        type: 'psychoeducation',
+        title: 'Understanding anger',
+        duration: '2 min',
+        content: [
+          'Anger is a normal emotion—it signals that something feels wrong.',
+          'Anger can come from feeling overwhelmed, frustrated, or hurt.',
+          'It\'s okay to feel angry, but how you express it matters.',
+          'You can learn to manage anger in healthy ways.',
+        ],
+      },
+      {
+        id: 'anger-2',
+        type: 'breathing',
+        title: 'Cooling Breath',
+        duration: '2 min',
+        content: [
+          'Breathe in through your nose',
+          'Breathe out through your mouth (like you\'re cooling soup)',
+          'Make the exhale longer than the inhale',
+          'Repeat 5-10 times',
+          'This helps calm your nervous system.',
+        ],
+      },
+      {
+        id: 'anger-3',
+        type: 'thought-challenging',
+        title: 'What\'s really going on?',
+        duration: '3 min',
+        content: [
+          'When you feel angry, pause and ask:',
+          'What am I really feeling? (hurt? frustrated? overwhelmed?)',
+          'What do I need right now? (space? understanding? help?)',
+          'What can I control? (my response, my actions)',
+          'What can\'t I control? (other people, situations)',
+        ],
+      },
+      {
+        id: 'anger-4',
+        type: 'action-plan',
+        title: 'Tonight I\'ll try...',
+        duration: '1 min',
+        content: [
+          'Pick one healthy way to manage anger:',
+          '• Take 5 deep breaths before responding',
+          '• Go for a walk or do some exercise',
+          '• Write down what you\'re feeling',
+          '• Talk to someone you trust',
+        ],
+      },
+    ],
+  },
+]
+
+// Function to recommend skill paths based on check-in results
+function recommendSkillPaths(entry: CheckInEntry): SkillPath[] {
+  const recommendations: SkillPath[] = []
+  
+  for (const path of skillPaths) {
+    if (!path.recommendedFor) continue
+    
+    const { mood, worries, sleepQuality, energy, concentration, burden } = path.recommendedFor
+    let matches = false
+    
+    if (mood !== undefined && entry.mood <= mood) matches = true
+    if (worries !== undefined && entry.worries >= worries) matches = true
+    if (sleepQuality !== undefined && entry.sleepQuality <= sleepQuality) matches = true
+    if (energy !== undefined && entry.energy <= energy) matches = true
+    if (concentration !== undefined && entry.concentration <= concentration) matches = true
+    if (burden !== undefined && entry.burden >= burden) matches = true
+    
+    if (matches) {
+      recommendations.push(path)
+    }
+  }
+  
+  return recommendations
+}
+
+type SkillsPathModalProps = {
+  recommendedPaths?: SkillPath[]
+  onClose: () => void
+  onPathComplete?: (pathId: string, preMood: number, postMood: number) => void
+}
+
+const SkillsPathModal = ({ recommendedPaths, onClose, onPathComplete }: SkillsPathModalProps) => {
+  const [selectedPath, setSelectedPath] = useState<SkillPath | null>(null)
+  const [currentModuleIndex, setCurrentModuleIndex] = useState(0)
+  const [preMood, setPreMood] = useState<number | null>(null)
+  const [postMood, setPostMood] = useState<number | null>(null)
+  const [showPostMood, setShowPostMood] = useState(false)
+  
+  const [skillSessions, setSkillSessions] = useState<SkillSession[]>(() => {
+    const stored = localStorage.getItem(SKILL_SESSIONS_KEY)
+    return stored ? JSON.parse(stored) : []
+  })
+  
+  const handlePathStart = (path: SkillPath) => {
+    setSelectedPath(path)
+    setCurrentModuleIndex(0)
+    setPreMood(null)
+    setPostMood(null)
+    setShowPostMood(false)
+  }
+  
+  const handleModuleComplete = () => {
+    if (!selectedPath) return
+    
+    if (currentModuleIndex < selectedPath.modules.length - 1) {
+      setCurrentModuleIndex(currentModuleIndex + 1)
+    } else {
+      // Path complete - show post-mood question
+      setShowPostMood(true)
+    }
+  }
+  
+  const handlePathComplete = () => {
+    if (!selectedPath || preMood === null || postMood === null) return
+    
+    const session: SkillSession = {
+      id: randomId(),
+      studentId: 'current-student', // In production, get from auth
+      pathId: selectedPath.id,
+      pathName: selectedPath.name,
+      preMood,
+      postMood,
+      completedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    }
+    
+    const updated = [...skillSessions, session]
+    setSkillSessions(updated)
+    localStorage.setItem(SKILL_SESSIONS_KEY, JSON.stringify(updated))
+    
+    if (onPathComplete) {
+      onPathComplete(selectedPath.id, preMood, postMood)
+    }
+    
+    // Reset and go back to path selection
+    setSelectedPath(null)
+    setCurrentModuleIndex(0)
+    setPreMood(null)
+    setPostMood(null)
+    setShowPostMood(false)
+  }
+  
+  const currentModule = selectedPath?.modules[currentModuleIndex]
+  const completedPaths = skillSessions.map(s => s.pathId)
+  
+  return (
+    <div className="skills-overlay" onClick={onClose}>
+      <div className="skills-modal" onClick={(e) => e.stopPropagation()}>
+        <header>
+          <h3>Skills Paths</h3>
+          <button type="button" className="close" onClick={onClose}>×</button>
+        </header>
+        
+        {!selectedPath ? (
+          <div className="skills-path-selection">
+            <p className="skills-intro">
+              Evidence-based skill paths to help you feel better. Each path takes about 5-10 minutes.
+            </p>
+            
+            {recommendedPaths && recommendedPaths.length > 0 && (
+              <div className="recommended-paths">
+                <h4>💡 Recommended for you</h4>
+                <div className="paths-grid">
+                  {recommendedPaths.map((path) => (
+                    <div
+                      key={path.id}
+                      className={`path-card ${completedPaths.includes(path.id) ? 'completed' : ''}`}
+                      onClick={() => handlePathStart(path)}
+                    >
+                      <span className="path-icon">{path.icon}</span>
+                      <h4>{path.name}</h4>
+                      <p>{path.description}</p>
+                      {completedPaths.includes(path.id) && (
+                        <span className="completed-badge">✓ Completed</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="all-paths">
+              <h4>All Paths</h4>
+              <div className="paths-grid">
+                {skillPaths.map((path) => (
+                  <div
+                    key={path.id}
+                    className={`path-card ${completedPaths.includes(path.id) ? 'completed' : ''}`}
+                    onClick={() => handlePathStart(path)}
+                  >
+                    <span className="path-icon">{path.icon}</span>
+                    <h4>{path.name}</h4>
+                    <p>{path.description}</p>
+                    {completedPaths.includes(path.id) && (
+                      <span className="completed-badge">✓ Completed</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="path-module-view">
+            {!showPostMood ? (
+              <>
+                {preMood === null && currentModuleIndex === 0 ? (
+                  <div className="pre-mood-question">
+                    <h4>Before we start, how are you feeling right now?</h4>
+                    <div className="mood-selector">
+                      {[1, 2, 3, 4, 5].map((mood) => (
+                        <button
+                          key={mood}
+                          type="button"
+                          className={`mood-btn ${preMood === mood ? 'selected' : ''}`}
+                          onClick={() => {
+                            setPreMood(mood)
+                          }}
+                        >
+                          {mood === 1 ? '😢' : mood === 2 ? '😐' : mood === 3 ? '🙂' : mood === 4 ? '😊' : '😄'}
+                          <span>{mood}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() => {
+                        // Pre-mood is set, continue to first module
+                      }}
+                      disabled={preMood === null}
+                    >
+                      Continue
+                    </button>
+                  </div>
+                ) : currentModule ? (
+                  <div className="module-content">
+                    <div className="module-progress">
+                      Module {currentModuleIndex + 1} of {selectedPath.modules.length}
+                    </div>
+                    <h4>{currentModule.title}</h4>
+                    <p className="module-duration">{currentModule.duration}</p>
+                    <div className="module-steps">
+                      {currentModule.content.map((step, i) => (
+                        <div key={i} className="module-step">
+                          {currentModule.type === 'breathing' && i === 0 && '🌬️ '}
+                          {currentModule.type === 'thought-challenging' && i === 0 && '💭 '}
+                          {currentModule.type === 'action-plan' && i === 0 && '✅ '}
+                          {step}
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={handleModuleComplete}
+                    >
+                      {currentModuleIndex < selectedPath.modules.length - 1 ? 'Next' : 'Complete Path'}
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="post-mood-question">
+                <h4>How are you feeling now?</h4>
+                <p>This helps us understand if the skills helped.</p>
+                <div className="mood-selector">
+                  {[1, 2, 3, 4, 5].map((mood) => (
+                    <button
+                      key={mood}
+                      type="button"
+                      className={`mood-btn ${postMood === mood ? 'selected' : ''}`}
+                      onClick={() => setPostMood(mood)}
+                    >
+                      {mood === 1 ? '😢' : mood === 2 ? '😐' : mood === 3 ? '🙂' : mood === 4 ? '😊' : '😄'}
+                      <span>{mood}</span>
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={handlePathComplete}
+                  disabled={postMood === null}
+                >
+                  Complete
+                </button>
+              </div>
+            )}
+            
+            <button
+              type="button"
+              className="ghost back-btn"
+              onClick={() => {
+                if (showPostMood) {
+                  setShowPostMood(false)
+                } else {
+                  setSelectedPath(null)
+                  setCurrentModuleIndex(0)
+                  setPreMood(null)
+                }
+              }}
+            >
+              ← Back
+            </button>
           </div>
         )}
       </div>
