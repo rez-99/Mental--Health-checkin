@@ -408,11 +408,12 @@ const sliderConfig = [
   { key: 'burden', label: 'Did you feel like a burden?', icon: '🤝', emoji: ['💚', '👍', '😐', '😔', '😞'], minLabel: 'Supported', maxLabel: 'Often' },
 ] as const
 
-const riskPalette = {
-  low: { label: 'Green', hue: 'linear-gradient(135deg, #1fbf75, #42d4a1)' },
-  medium: { label: 'Yellow', hue: 'linear-gradient(135deg, #f5a623, #ffd25a)' },
-  high: { label: 'Red', hue: 'linear-gradient(135deg, #ff5f6d, #ff9a44)' },
-}
+// riskPalette - currently unused (was used by RiskBadge component)
+// const riskPalette = {
+//   low: { label: 'Green', hue: 'linear-gradient(135deg, #1fbf75, #42d4a1)' },
+//   medium: { label: 'Yellow', hue: 'linear-gradient(135deg, #f5a623, #ffd25a)' },
+//   high: { label: 'Red', hue: 'linear-gradient(135deg, #ff5f6d, #ff9a44)' },
+// }
 
 const formatDate = (iso: string) =>
   new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(iso))
@@ -1080,7 +1081,7 @@ export function App() {
                 Universal screening helps us find and support students who need help, even when it's not obvious.
               </p>
               <div className="cta-group">
-                <button className={activeView === 'student' ? 'primary' : 'ghost'} onClick={() => setActiveView('student')}>
+                <button className="ghost" onClick={() => setActiveView('student')}>
                   {t.studentCheckIn}
                 </button>
                 <button className={activeView === 'staff' ? 'primary' : 'ghost'} onClick={() => setActiveView('staff')}>
@@ -2470,17 +2471,18 @@ const AuditLogViewer = ({ auditLogs }: AuditLogViewerProps) => {
   )
 }
 
-const RiskBadge = ({ entry }: { entry?: CheckInEntry }) => {
-  const score = calculateRiskScore(entry)
-  const band = riskBand(score)
-  const palette = riskPalette[band as keyof typeof riskPalette]
-  return (
-    <div className="risk-badge" style={{ backgroundImage: palette.hue }}>
-      <span>{palette.label}</span>
-      <strong>{score}</strong>
-    </div>
-  )
-}
+// RiskBadge component - currently unused, commented out for now
+// const RiskBadge = ({ entry }: { entry?: CheckInEntry }) => {
+//   const score = calculateRiskScore(entry)
+//   const band = riskBand(score)
+//   const palette = riskPalette[band as keyof typeof riskPalette]
+//   return (
+//     <div className="risk-badge" style={{ backgroundImage: palette.hue }}>
+//       <span>{palette.label}</span>
+//       <strong>{score}</strong>
+//     </div>
+//   )
+// }
 
 const TrendGraph = ({ history }: { history: CheckInEntry[] }) => {
   const dataPoints = history.map((entry) => ({
