@@ -574,6 +574,27 @@ const translations = {
     runsBeautifully: 'Runs beautifully on:',
     universalScreeningNote: 'Universal screening for all students. Evidence-based measures (PHQ-A, GAD-7) in youth-friendly language.',
     universalScreeningResults: 'Universal screening results. Validated measures (PHQ-A, GAD-7) help identify students who need support.',
+    // Engagement messages
+    forEveryStudent: 'For every student, every week.',
+    goodDaysMatter: 'Good days and tough days both matter.',
+    youveDealtWithAlot: 'You\'ve probably already dealt with a lot on your own. This is a small way of not carrying it all by yourself.',
+    weekStreakLabel: 'week streak',
+    checkInsLabel: 'check-ins',
+    // Form labels
+    preferredName: '✨ Preferred name (optional)',
+    stayAnonymous: 'You can stay anonymous',
+    // Inspiration quote
+    rumiQuote: '"You are not a drop in the ocean. You are the entire ocean in a drop."',
+    rumiAuthor: '– Rumi',
+    youMatterMessage: 'You matter more than you know, and your feelings matter too. 🌊💛',
+    // Step labels
+    stepMoodBasics: 'Mood & basics',
+    stepEnergyWorries: 'Energy & worries',
+    stepWrapUp: 'Wrap-up',
+    stepSafetyCheck: 'Safety check',
+    continueToSafety: 'Continue to safety check',
+    // Buttons
+    calmRoom: '🌿 Calm Room',
   },
   es: {
     heroTitle: 'Momentos de registro que se convierten en apoyo oportuno.',
@@ -628,6 +649,27 @@ const translations = {
     runsBeautifully: 'Funciona perfectamente en:',
     universalScreeningNote: 'Registro universal para todos los estudiantes. Medidas basadas en evidencia (PHQ-A, GAD-7) en lenguaje amigable para jóvenes.',
     universalScreeningResults: 'Resultados del registro universal. Medidas validadas (PHQ-A, GAD-7) ayudan a identificar estudiantes que necesitan apoyo.',
+    // Engagement messages
+    forEveryStudent: 'Para cada estudiante, cada semana.',
+    goodDaysMatter: 'Los días buenos y los días difíciles importan.',
+    youveDealtWithAlot: 'Probablemente ya has lidiado con mucho por tu cuenta. Esta es una pequeña forma de no cargar con todo solo.',
+    weekStreakLabel: 'semanas seguidas',
+    checkInsLabel: 'registros',
+    // Form labels
+    preferredName: '✨ Nombre preferido (opcional)',
+    stayAnonymous: 'Puedes permanecer anónimo',
+    // Inspiration quote
+    rumiQuote: '"No eres una gota en el océano. Eres todo el océano en una gota."',
+    rumiAuthor: '– Rumi',
+    youMatterMessage: 'Importas más de lo que sabes, y tus sentimientos también importan. 🌊💛',
+    // Step labels
+    stepMoodBasics: 'Estado de ánimo y básicos',
+    stepEnergyWorries: 'Energía y preocupaciones',
+    stepWrapUp: 'Resumen',
+    stepSafetyCheck: 'Verificación de seguridad',
+    continueToSafety: 'Continuar a verificación de seguridad',
+    // Buttons
+    calmRoom: '🌿 Sala de calma',
   },
   fr: {
     heroTitle: 'Des moments de vérification qui se transforment en soutien opportun.',
@@ -682,6 +724,27 @@ const translations = {
     runsBeautifully: 'Fonctionne parfaitement sur :',
     universalScreeningNote: 'Dépistage universel pour tous les étudiants. Mesures fondées sur des preuves (PHQ-A, GAD-7) dans un langage adapté aux jeunes.',
     universalScreeningResults: 'Résultats du dépistage universel. Mesures validées (PHQ-A, GAD-7) aident à identifier les étudiants qui ont besoin de soutien.',
+    // Engagement messages
+    forEveryStudent: 'Pour chaque étudiant, chaque semaine.',
+    goodDaysMatter: 'Les bons jours et les jours difficiles comptent tous.',
+    youveDealtWithAlot: 'Vous avez probablement déjà géré beaucoup de choses par vous-même. C\'est une petite façon de ne pas tout porter seul.',
+    weekStreakLabel: 'semaines consécutives',
+    checkInsLabel: 'vérifications',
+    // Form labels
+    preferredName: '✨ Nom préféré (optionnel)',
+    stayAnonymous: 'Vous pouvez rester anonyme',
+    // Inspiration quote
+    rumiQuote: '"Vous n\'êtes pas une goutte dans l\'océan. Vous êtes tout l\'océan dans une goutte."',
+    rumiAuthor: '– Rumi',
+    youMatterMessage: 'Vous comptez plus que vous ne le savez, et vos sentiments comptent aussi. 🌊💛',
+    // Step labels
+    stepMoodBasics: 'Humeur et bases',
+    stepEnergyWorries: 'Énergie et inquiétudes',
+    stepWrapUp: 'Récapitulatif',
+    stepSafetyCheck: 'Vérification de sécurité',
+    continueToSafety: 'Continuer vers la vérification de sécurité',
+    // Buttons
+    calmRoom: '🌿 Salle de calme',
   },
 }
 
@@ -1597,9 +1660,9 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
             <h2>{translations.weeklyCheckIn}</h2>
             <p>{translations.checkInDesc}</p>
             <p className="universal-note">
-              <strong>For every student, every week.</strong> Good days and tough days both matter. 💛<br />
+              <strong>{translations.forEveryStudent}</strong> {translations.goodDaysMatter} 💛<br />
               <span style={{ fontSize: '0.9rem', display: 'block', marginTop: '0.5rem' }}>
-                You've probably already dealt with a lot on your own. This is a small way of not carrying it all by yourself.
+                {translations.youveDealtWithAlot}
               </span>
             </p>
           </div>
@@ -1609,7 +1672,7 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
               className="calm-room-btn" 
               onClick={() => setShowCalmRoom(true)}
             >
-              🌿 Calm Room
+              {translations.calmRoom}
             </button>
             <button 
               type="button" 
@@ -1623,29 +1686,29 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
         </div>
         {engagement.totalCheckIns > 0 && (
           <div className="engagement-badge">
-            <span>🔥 {engagement.currentStreak} week streak</span>
-            <span>📊 {engagement.totalCheckIns} check-ins</span>
+            <span>🔥 {engagement.currentStreak} {translations.weekStreakLabel}</span>
+            <span>📊 {engagement.totalCheckIns} {translations.checkInsLabel}</span>
           </div>
         )}
       </div>
       <div className="preferred-name-section">
         <div className="card preferred-name-card">
-          <label>✨ Preferred name (optional)</label>
+          <label>{translations.preferredName}</label>
           <input
             type="text"
-            placeholder="You can stay anonymous"
+            placeholder={translations.stayAnonymous}
             value={form.studentName}
             onChange={(e) => setForm((prev) => ({ ...prev, studentName: e.target.value }))}
           />
         </div>
         <div className="inspiration-note-card">
-          <p className="inspiration-quote">"You are not a drop in the ocean. You are the entire ocean in a drop."</p>
-          <p className="inspiration-author">– Rumi</p>
-          <p className="inspiration-message">You matter more than you know, and your feelings matter too. 🌊💛</p>
+          <p className="inspiration-quote">{translations.rumiQuote}</p>
+          <p className="inspiration-author">{translations.rumiAuthor}</p>
+          <p className="inspiration-message">{translations.youMatterMessage}</p>
         </div>
       </div>
       <div className="stepper">
-        {['Mood & basics', 'Energy & worries', 'Wrap-up', 'Safety check'].map((label, index) => (
+        {[translations.stepMoodBasics, translations.stepEnergyWorries, translations.stepWrapUp, translations.stepSafetyCheck].map((label, index) => (
           <div key={label} className={`step ${index === step ? 'active' : step > index ? 'done' : ''}`}>
             <span>{index + 1}</span>
             <p>{label}</p>
@@ -1755,7 +1818,7 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
           </button>
         ) : step === 2 ? (
           <button className="primary" onClick={handleNext}>
-            Continue to safety check
+            {translations.continueToSafety}
           </button>
         ) : null}
       </div>
