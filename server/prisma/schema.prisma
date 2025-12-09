@@ -1,0 +1,138 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model School {
+  id        String   @id @default(uuid())
+  name      String
+  district  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users    User[]
+  students Student[]
+
+  @@map("schools")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  schoolId  String   @map("school_id")
+  authSub   String   @unique @map("auth_sub") // Auth0/Azure AD subject ID
+  role      UserRole
+  name      String
+  email     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@map("users")
+}
+
+enum UserRole {
+  COUNSELLOR
+  ADMIN
+}
+
+model Student {
+  id               String         @id @default(uuid())
+  schoolId         String         @map("school_id")
+  externalStudentId String?        @map("external_student_id") // From SIS/SSO
+  displayName      String         @map("display_name")
+  grade            Int?
+  consentStatus    ConsentStatus  @default(PENDING) @map("consent_status")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  school    School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  checkIns  CheckIn[]
+  auditLogs AuditLog[]
+
+  @@map("students")
+}
+
+enum ConsentStatus {
+  PENDING
+  GRANTED
+  DENIED
+}
+
+model CheckIn {
+  id            String     @id @default(uuid())
+  studentId     String     @map("student_id")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  
+  // Mood & basics
+  mood          Int        // 1-5
+  sleepQuality  Int        @map("sleep_quality") // 1-5
+  concentration Int        // 1-5
+  energy        Int        // 1-5
+  worries       Int        // 1-5
+  burden        Int        // 1-5
+  
+  // Optional fields
+  notes         String?    @db.Text
+  cognitiveScore Int?       @map("cognitive_score")
+  screenUseImpact String?   @map("screen_use_impact")
+  
+  // Calculated risk
+  riskScore     Float      @map("risk_score")
+  riskLevel     RiskLevel  @map("risk_level")
+  flags         Json?      // e.g., { "three_low_mood_weeks": true }
+  
+  // Screening scores
+  phqScore      Int?       @map("phq_score")
+  gadScore      Int?       @map("gad_score")
+  safetyRisk    String?    @map("safety_risk") // 'low' | 'moderate' | 'high' | 'immediate'
+  
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([createdAt])
+  @@index([riskLevel])
+  @@map("check_ins")
+}
+
+enum RiskLevel {
+  green
+  yellow
+  red
+}
+
+model AuditLog {
+  id        String      @id @default(uuid())
+  userId    String?     @map("user_id") // Nullable for system actions
+  schoolId  String?     @map("school_id")
+  studentId String?     @map("student_id")
+  type      AuditType
+  details   Json?
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+enum AuditType {
+  VIEW_STUDENT
+  EXPORT_DATA
+  CHANGE_CONSENT
+  CREATE_CHECK_IN
+  VIEW_DASHBOARD
+  ADD_NOTE
+  FOLLOW_STUDENT
+}
+
