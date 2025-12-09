@@ -2,29 +2,11 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-interface ApiError {
-  error: string;
-}
-
 // Get auth token from localStorage (in production, get from Auth0/Clerk)
 function getAuthToken(): string | null {
   // For development: you can store a mock token
   // In production, get from your auth provider
   return localStorage.getItem('auth_token');
-}
-
-// Create headers with auth token
-function getHeaders(): HeadersInit {
-  const token = getAuthToken();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  return headers;
 }
 
 // API request wrapper
