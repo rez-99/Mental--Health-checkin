@@ -53,6 +53,12 @@ declare global {
 // ---- Auth middleware (DEV-FRIENDLY) ----
 // In dev, if token is missing/invalid, we fall back to a dummy user.
 // For production, you would tighten this and verify real JWTs.
+const DEV_USER: AuthUser = {
+  sub: "dev-counsellor-1",
+  role: "COUNSELLOR",
+  schoolId: "school-dev-1",
+};
+
 const authMiddleware = (
   req: express.Request,
   _res: express.Response,
@@ -60,44 +66,28 @@ const authMiddleware = (
 ) => {
   const header = req.headers.authorization;
 
-  const devUser: AuthUser = {
-    sub: "dev-student-1",
-    role: "STUDENT",
-    schoolId: "school-dev-1",
-  };
-
   if (!header || !header.startsWith("Bearer ")) {
-    console.warn("Auth: no token provided, using dev fallback user");
-    req.user = devUser;
+    console.warn("Auth: missing token, using dev fallback user");
+    req.user = DEV_USER;
     return next();
   }
 
   const token = header.slice(7);
 
   try {
-    const decoded = jwt.decode(token) as any;
+    const decoded = jwt.decode(token) as AuthUser | null;
 
-    if (
-      decoded &&
-      typeof decoded === "object" &&
-      typeof decoded.sub === "string" &&
-      typeof decoded.role === "string" &&
-      typeof decoded.schoolId === "string"
-    ) {
-      req.user = {
-        sub: decoded.sub,
-        role: decoded.role as AuthUser["role"],
-        schoolId: decoded.schoolId,
-      };
-    } else {
+    if (!decoded || !decoded.sub || !decoded.role || !decoded.schoolId) {
       console.warn("Auth: invalid token structure, using dev fallback user");
-      req.user = devUser;
+      req.user = DEV_USER;
+      return next();
     }
 
+    req.user = decoded;
     return next();
   } catch (err) {
     console.warn("Auth: error decoding token, using dev fallback user", err);
-    req.user = devUser;
+    req.user = DEV_USER;
     return next();
   }
 };
