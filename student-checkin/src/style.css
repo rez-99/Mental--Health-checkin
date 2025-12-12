@@ -616,6 +616,106 @@ button.ghost {
   padding-left: 1rem;
 }
 
+/* Wrap-up section - Snapshot as reward */
+.wrapup-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.snapshot-card {
+  background: #fff8e1;
+  border-radius: 18px;
+  padding: 2rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(255, 193, 7, 0.35);
+  opacity: 0;
+  transform: scale(0.96);
+  animation: snapshotIn 260ms ease-out forwards;
+}
+
+@keyframes snapshotIn {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.snapshot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  background: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1rem;
+  font-weight: 500;
+  color: #92400e;
+}
+
+.snapshot-card h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  color: #12333B;
+}
+
+.snapshot-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.snapshot-card ul li {
+  padding: 0.5rem 0;
+  font-size: 1rem;
+  color: #334155;
+}
+
+.snapshot-card ul li strong {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.snapshot-note {
+  margin: 1.5rem 0 0 0;
+  font-size: 0.95rem;
+  color: #475569;
+  font-style: italic;
+}
+
+.wrapup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.optional-activity-card {
+  position: relative;
+}
+
+.optional-activity-card > .card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(75, 175, 191, 0.08);
+  padding: 1.25rem;
+}
+
+.optional-pill {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 10;
+  background: #f1f5f9;
+  color: #64748b;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
@@ -3248,6 +3348,28 @@ button.ghost {
   button {
     width: 100%;
     text-align: center;
+  }
+
+  .wrapup-section {
+    gap: 1.5rem;
+  }
+
+  .snapshot-card {
+    padding: 1.5rem;
+    border-radius: 16px;
+  }
+
+  .snapshot-card h3 {
+    font-size: 1.25rem;
+  }
+
+  .wrapup-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .optional-activity-card {
+    padding: 1rem;
   }
 
   .calm-room-modal {

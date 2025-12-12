@@ -2044,31 +2044,43 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
       )}
 
       {step === 2 && (
-        <div className="card-grid cognitive-grid">
-          <CognitiveMiniTask score={cognitiveScore} onScoreChange={setCognitiveScore} />
-          <ScreenUseReflection 
-            value={form.screenUseImpact}
-            onChange={(value) => setForm((prev) => ({ ...prev, screenUseImpact: value }))}
-          />
-          <div className="card summary-card">
-            <h3>Your weekly snapshot</h3>
+        <div className="wrapup-section">
+          <div className="snapshot-card">
+            <div className="snapshot-badge">
+              <span>✅</span>
+              <span>Check-in complete · This week's summary</span>
+            </div>
+            <h3>You finished this week's check-in 🎉</h3>
             <ul>
               <li>
-                Mood sits at <strong>{form.mood}/5</strong>
+                Mood: <strong>{form.mood} / 5</strong>
               </li>
               <li>
-                Sleep & energy average <strong>{Math.round((form.sleepQuality + form.energy) / 2)}/5</strong>
+                Sleep & energy: <strong>{Math.round((form.sleepQuality + form.energy) / 2)} / 5</strong>
               </li>
               <li>
-                Worries feel <strong>{form.worries >= 3 ? 'heavy' : 'manageable'}</strong>
+                Worries: <strong>{form.worries >= 3 ? 'heavy' : 'manageable'}</strong>
               </li>
               {cognitiveScore && (
                 <li>
-                  Reaction time mini-game: <strong>{cognitiveScore} ms</strong>
+                  Reaction time: <strong>{cognitiveScore} ms</strong>
                 </li>
               )}
             </ul>
-            <p>Ready to share this privately with your student support team?</p>
+            <p className="snapshot-note">This summary is just for you and your student support team.</p>
+          </div>
+          <div className="wrapup-grid">
+            <div className="optional-activity-card">
+              <span className="optional-pill">Optional</span>
+              <CognitiveMiniTask score={cognitiveScore} onScoreChange={setCognitiveScore} />
+            </div>
+            <div className="optional-activity-card">
+              <span className="optional-pill">Optional</span>
+              <ScreenUseReflection 
+                value={form.screenUseImpact}
+                onChange={(value) => setForm((prev) => ({ ...prev, screenUseImpact: value }))}
+              />
+            </div>
           </div>
         </div>
       )}
