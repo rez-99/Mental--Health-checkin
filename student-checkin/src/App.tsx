@@ -3262,28 +3262,81 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
     counselorNotes: '',
     actionTaken: '',
   })
+  const [followUps, setFollowUps] = useState<FollowUpRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const followUps = student.followUps || []
+  // Load follow-ups from API on mount
+  useEffect(() => {
+    const loadFollowUps = async () => {
+      try {
+        setLoading(true)
+        // Set up auth token for API calls
+        const token = createMockToken('counsellor-1', 'COUNSELLOR', 'school-dev-1')
+        setMockToken(token)
+        
+        const apiFollowUps = await counsellorApi.getFollowUps(student.id)
+        
+        // Convert API format to FollowUpRecord format
+        const converted = apiFollowUps.map((f: any) => ({
+          id: f.id,
+          studentId: f.studentId,
+          checkInId: f.checkInId || '',
+          flaggedDate: f.createdAt,
+          status: f.status,
+          scheduledAt: f.scheduledAt,
+          counselorNotes: f.notes,
+          actionTaken: f.actionTaken,
+          createdAt: f.createdAt,
+          updatedAt: f.updatedAt,
+        }))
+        
+        setFollowUps(converted)
+        setError(null)
+      } catch (err) {
+        console.error('Failed to load follow-ups:', err)
+        setError('Failed to load follow-ups. Using local data.')
+        // Fallback to localStorage if API fails
+        const stored = localStorage.getItem(FOLLOWUPS_KEY)
+        const allFollowUps = stored ? JSON.parse(stored) : []
+        const studentFollowUps = allFollowUps.filter((f: FollowUpRecord) => f.studentId === student.id)
+        setFollowUps(studentFollowUps)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    loadFollowUps()
+  }, [student.id])
+
   const pendingFollowUps = followUps.filter(f => f.status === 'pending')
   
-  const handleStatusChange = (followUpId: string, newStatus: FollowUpStatus) => {
-    const updated = {
-      ...student,
-      followUps: student.followUps?.map(f => 
+  const handleStatusChange = async (followUpId: string, newStatus: FollowUpStatus) => {
+    try {
+      // Update via API
+      await counsellorApi.updateFollowUp(followUpId, { status: newStatus })
+      
+      // Update local state
+      setFollowUps(prev => prev.map(f => 
         f.id === followUpId 
           ? { ...f, status: newStatus, updatedAt: new Date().toISOString() }
           : f
-      ),
+      ))
+      
+      // Also update student record for UI consistency
+      const updated = {
+        ...student,
+        followUps: student.followUps?.map(f => 
+          f.id === followUpId 
+            ? { ...f, status: newStatus, updatedAt: new Date().toISOString() }
+            : f
+        ),
+      }
+      onUpdate(updated)
+    } catch (err) {
+      console.error('Failed to update follow-up status:', err)
+      alert('Failed to update follow-up status. Please try again.')
     }
-    onUpdate(updated)
-    
-    // Update localStorage
-    const stored = localStorage.getItem(FOLLOWUPS_KEY)
-    const allFollowUps = stored ? JSON.parse(stored) : []
-    const updatedAll = allFollowUps.map((f: FollowUpRecord) =>
-      f.id === followUpId ? { ...f, status: newStatus, updatedAt: new Date().toISOString() } : f
-    )
-    localStorage.setItem(FOLLOWUPS_KEY, JSON.stringify(updatedAll))
   }
 
   const handleEdit = (followUp: FollowUpRecord) => {
@@ -3298,50 +3351,62 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
     setShowForm(true)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedFollowUp) return
     
-    // Convert datetime-local to ISO string
-    const scheduledAt = dateTimeLocalToIso(formData.scheduledAt)
-    
-    const updated = {
-      ...student,
-      followUps: student.followUps?.map(f =>
-        f.id === selectedFollowUp.id
-          ? {
-              ...f,
-              status: formData.status,
-              scheduledAt,
-              scheduledDate: undefined, // Clear legacy field
-              counselorNotes: formData.counselorNotes,
-              actionTaken: formData.actionTaken,
-              updatedAt: new Date().toISOString(),
-            }
-          : f
-      ),
+    try {
+      // Convert datetime-local to ISO string
+      const scheduledAt = dateTimeLocalToIso(formData.scheduledAt)
+      
+      // Update via API
+      const updated = await counsellorApi.updateFollowUp(selectedFollowUp.id, {
+        status: formData.status,
+        scheduledAt: scheduledAt || null,
+        notes: formData.counselorNotes || undefined,
+        actionTaken: formData.actionTaken || undefined,
+      })
+      
+      // Convert API response to FollowUpRecord format
+      const converted: FollowUpRecord = {
+        id: updated.id,
+        studentId: updated.studentId,
+        checkInId: selectedFollowUp.checkInId,
+        flaggedDate: updated.createdAt,
+        status: updated.status as FollowUpStatus,
+        scheduledAt: updated.scheduledAt || undefined,
+        counselorNotes: updated.notes,
+        actionTaken: updated.actionTaken,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt,
+      }
+      
+      // Update local state
+      setFollowUps(prev => prev.map(f => f.id === selectedFollowUp.id ? converted : f))
+      
+      // Also update student record for UI consistency
+      const studentUpdated = {
+        ...student,
+        followUps: student.followUps?.map(f =>
+          f.id === selectedFollowUp.id ? converted : f
+        ),
+      }
+      onUpdate(studentUpdated)
+      
+      setShowForm(false)
+      setSelectedFollowUp(null)
+    } catch (err) {
+      console.error('Failed to save follow-up:', err)
+      alert('Failed to save follow-up. Please try again.')
     }
-    onUpdate(updated)
-    
-    // Update localStorage
-    const stored = localStorage.getItem(FOLLOWUPS_KEY)
-    const allFollowUps = stored ? JSON.parse(stored) : []
-    const updatedAll = allFollowUps.map((f: FollowUpRecord) =>
-      f.id === selectedFollowUp.id
-        ? {
-            ...f,
-            status: formData.status,
-            scheduledAt,
-            scheduledDate: undefined, // Clear legacy field
-            counselorNotes: formData.counselorNotes,
-            actionTaken: formData.actionTaken,
-            updatedAt: new Date().toISOString(),
-          }
-        : f
+  }
+
+  if (loading) {
+    return (
+      <div className="follow-up-workflow">
+        <h4>Referral workflow & follow-ups</h4>
+        <p>Loading follow-ups...</p>
+      </div>
     )
-    localStorage.setItem(FOLLOWUPS_KEY, JSON.stringify(updatedAll))
-    
-    setShowForm(false)
-    setSelectedFollowUp(null)
   }
 
   if (followUps.length === 0) return null
@@ -3349,6 +3414,11 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
   return (
     <div className="follow-up-workflow">
       <h4>Referral workflow & follow-ups</h4>
+      {error && (
+        <div className="pending-alert" style={{ background: '#fef3c7', borderColor: '#fbbf24' }}>
+          ⚠️ {error}
+        </div>
+      )}
       {pendingFollowUps.length > 0 && (
         <div className="pending-alert">
           ⚠️ {pendingFollowUps.length} pending follow-up{pendingFollowUps.length > 1 ? 's' : ''} need attention

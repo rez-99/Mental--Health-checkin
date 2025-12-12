@@ -66,6 +66,25 @@ export const studentApi = {
   },
 };
 
+// Follow-up types
+export type FollowUpStatus = 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'no_action_needed';
+
+export interface FollowUpInput {
+  status: FollowUpStatus;
+  scheduledAt?: string | null;  // ISO string, or undefined
+  notes?: string;
+  actionTaken?: string;
+  checkInId?: string;
+}
+
+export interface FollowUp extends FollowUpInput {
+  id: string;
+  studentId: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Counsellor API
 export const counsellorApi = {
   // Get dashboard overview
@@ -80,6 +99,27 @@ export const counsellorApi = {
     
     return apiRequest('/api/dashboard/flags', {
       method: 'GET',
+    });
+  },
+
+  // Get all follow-ups for a student
+  getFollowUps: async (studentId: string): Promise<FollowUp[]> => {
+    return apiRequest(`/api/students/${studentId}/follow-ups`);
+  },
+
+  // Create a follow-up
+  createFollowUp: async (studentId: string, input: FollowUpInput): Promise<FollowUp> => {
+    return apiRequest(`/api/students/${studentId}/follow-ups`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+
+  // Update a follow-up
+  updateFollowUp: async (id: string, input: FollowUpInput): Promise<FollowUp> => {
+    return apiRequest(`/api/follow-ups/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
     });
   },
 };
