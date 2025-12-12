@@ -2412,12 +2412,14 @@ const CognitiveMiniTask = ({ score, onScoreChange }: CognitiveMiniTaskProps) => 
     <div className={`card cognitive ${status}`}>
       <div className="cognitive__body" onClick={handleTap}>
         <p>{message}</p>
-        <button type="button" className="ghost" onClick={(e) => {
-          e.stopPropagation()
-          handleTap()
-        }}>
-          {status === 'tap' ? 'Tap!' : 'Start mini-game'}
-        </button>
+        {status !== 'waiting' && (
+          <button type="button" className="ghost" onClick={(e) => {
+            e.stopPropagation()
+            handleTap()
+          }}>
+            {status === 'tap' ? 'Tap!' : 'Start mini-game'}
+          </button>
+        )}
       </div>
       <p className="cognitive__note">
         Optional 30s attention pulse. No scores are shared beyond your student support team.
