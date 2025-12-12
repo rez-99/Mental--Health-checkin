@@ -108,7 +108,8 @@ type FollowUpRecord = {
   checkInId: string
   flaggedDate: string
   status: FollowUpStatus
-  scheduledDate?: string
+  scheduledAt?: string // ISO datetime string, e.g. "2026-01-07T15:30:00.000Z"
+  scheduledDate?: string // Legacy field for backward compatibility
   counselorNotes?: string
   actionTaken?: string
   createdAt: string
@@ -556,6 +557,50 @@ const sliderConfig = [
 
 const formatDate = (iso: string) =>
   new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(iso))
+
+const formatDateTime = (iso: string) => {
+  const d = new Date(iso)
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+// Helper to get scheduledAt from a follow-up (handles backward compatibility)
+const getScheduledAt = (followUp: FollowUpRecord): string | undefined => {
+  if (followUp.scheduledAt) return followUp.scheduledAt
+  // Backward compatibility: if only scheduledDate exists, convert to scheduledAt with default time
+  if (followUp.scheduledDate) {
+    // Default to 3:30 PM (15:30) local time
+    const date = new Date(followUp.scheduledDate)
+    date.setHours(15, 30, 0, 0)
+    return date.toISOString()
+  }
+  return undefined
+}
+
+// Convert ISO datetime to datetime-local format (YYYY-MM-DDTHH:mm)
+const isoToDateTimeLocal = (iso: string | undefined): string => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  // Convert to local time and format as YYYY-MM-DDTHH:mm
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+// Convert datetime-local format to ISO string
+const dateTimeLocalToIso = (dateTimeLocal: string): string | undefined => {
+  if (!dateTimeLocal) return undefined
+  const d = new Date(dateTimeLocal)
+  return d.toISOString()
+}
 
 const calculateRiskScore = (entry: CheckInEntry | undefined) => {
   if (!entry) return 0
@@ -3213,7 +3258,7 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
   const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUpRecord | null>(null)
   const [formData, setFormData] = useState({
     status: 'pending' as FollowUpStatus,
-    scheduledDate: '',
+    scheduledAt: '', // datetime-local format string
     counselorNotes: '',
     actionTaken: '',
   })
@@ -3243,9 +3288,10 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
 
   const handleEdit = (followUp: FollowUpRecord) => {
     setSelectedFollowUp(followUp)
+    const scheduledAt = getScheduledAt(followUp)
     setFormData({
       status: followUp.status,
-      scheduledDate: followUp.scheduledDate || '',
+      scheduledAt: isoToDateTimeLocal(scheduledAt),
       counselorNotes: followUp.counselorNotes || '',
       actionTaken: followUp.actionTaken || '',
     })
@@ -3255,19 +3301,45 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
   const handleSave = () => {
     if (!selectedFollowUp) return
     
+    // Convert datetime-local to ISO string
+    const scheduledAt = dateTimeLocalToIso(formData.scheduledAt)
+    
     const updated = {
       ...student,
       followUps: student.followUps?.map(f =>
         f.id === selectedFollowUp.id
           ? {
               ...f,
-              ...formData,
+              status: formData.status,
+              scheduledAt,
+              scheduledDate: undefined, // Clear legacy field
+              counselorNotes: formData.counselorNotes,
+              actionTaken: formData.actionTaken,
               updatedAt: new Date().toISOString(),
             }
           : f
       ),
     }
     onUpdate(updated)
+    
+    // Update localStorage
+    const stored = localStorage.getItem(FOLLOWUPS_KEY)
+    const allFollowUps = stored ? JSON.parse(stored) : []
+    const updatedAll = allFollowUps.map((f: FollowUpRecord) =>
+      f.id === selectedFollowUp.id
+        ? {
+            ...f,
+            status: formData.status,
+            scheduledAt,
+            scheduledDate: undefined, // Clear legacy field
+            counselorNotes: formData.counselorNotes,
+            actionTaken: formData.actionTaken,
+            updatedAt: new Date().toISOString(),
+          }
+        : f
+    )
+    localStorage.setItem(FOLLOWUPS_KEY, JSON.stringify(updatedAll))
+    
     setShowForm(false)
     setSelectedFollowUp(null)
   }
@@ -3296,9 +3368,12 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
                   PHQ: {checkIn.phqScore ?? 0} | GAD: {checkIn.gadScore ?? 0}
                 </div>
               )}
-              {followUp.scheduledDate && (
-                <p className="follow-up-scheduled">Scheduled: {formatDate(followUp.scheduledDate)}</p>
-              )}
+              {(() => {
+                const scheduledAt = getScheduledAt(followUp)
+                return scheduledAt && (
+                  <p className="follow-up-scheduled">Scheduled: {formatDateTime(scheduledAt)}</p>
+                )
+              })()}
               {followUp.counselorNotes && (
                 <p className="follow-up-notes">{followUp.counselorNotes}</p>
               )}
@@ -3340,12 +3415,15 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
             </select>
           </label>
           <label>
-            Scheduled date
+            Scheduled date & time
             <input
-              type="date"
-              value={formData.scheduledDate}
-              onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
+              type="datetime-local"
+              value={formData.scheduledAt}
+              onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
             />
+            <small style={{ display: 'block', marginTop: '0.5rem', color: '#64748b', fontSize: '0.85rem' }}>
+              This helps your team remember when the student is expecting to come in.
+            </small>
           </label>
           <label>
             Counselor notes
