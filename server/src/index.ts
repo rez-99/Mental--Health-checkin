@@ -615,6 +615,171 @@ app.get(
 );
 
 // List recent flags for counsellor / admin
+// Follow-up endpoints
+// Get all follow-ups for a student
+app.get(
+  "/api/students/:studentId/follow-ups",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { studentId } = req.params;
+
+      if (!req.user || (req.user.role !== "COUNSELLOR" && req.user.role !== "ADMIN")) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      const followUps = await prisma.followUp.findMany({
+        where: { studentId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // Convert status from UPPERCASE to lowercase for frontend
+      const formatted = followUps.map((f) => ({
+        ...f,
+        status: f.status.toLowerCase() as any,
+        createdAt: f.createdAt.toISOString(),
+        updatedAt: f.updatedAt.toISOString(),
+        scheduledAt: f.scheduledAt?.toISOString() || null,
+      }));
+
+      res.json(formatted);
+    } catch (err) {
+      console.error("Error fetching follow-ups:", err);
+      res.status(500).json({ error: "Failed to fetch follow-ups" });
+    }
+  }
+);
+
+// Create a follow-up
+app.post(
+  "/api/students/:studentId/follow-ups",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { studentId } = req.params;
+      const { status, scheduledAt, notes, actionTaken, checkInId } = req.body;
+
+      if (!req.user || (req.user.role !== "COUNSELLOR" && req.user.role !== "ADMIN")) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      // Get or create user record for the counselor
+      let user = await prisma.user.findFirst({
+        where: { authSub: req.user.sub },
+      });
+
+      if (!user) {
+        // Create a user record if it doesn't exist (for dev/testing)
+        user = await prisma.user.create({
+          data: {
+            authSub: req.user.sub,
+            schoolId: req.user.schoolId,
+            role: req.user.role === "COUNSELLOR" ? "COUNSELLOR" : "ADMIN",
+            name: req.user.sub,
+            email: `${req.user.sub}@example.com`,
+          },
+        });
+      }
+
+      // Convert status from lowercase to UPPERCASE for database
+      const dbStatus = status?.toUpperCase().replace("-", "_") || "PENDING";
+
+      const followUp = await prisma.followUp.create({
+        data: {
+          studentId,
+          createdById: user.id,
+          checkInId: checkInId || null,
+          status: dbStatus as any,
+          scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+          notes: notes || null,
+          actionTaken: actionTaken || null,
+        },
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // Convert back to lowercase for frontend
+      res.status(201).json({
+        ...followUp,
+        status: followUp.status.toLowerCase() as any,
+        createdAt: followUp.createdAt.toISOString(),
+        updatedAt: followUp.updatedAt.toISOString(),
+        scheduledAt: followUp.scheduledAt?.toISOString() || null,
+      });
+    } catch (err) {
+      console.error("Error creating follow-up:", err);
+      res.status(500).json({ error: "Failed to create follow-up" });
+    }
+  }
+);
+
+// Update a follow-up
+app.put("/api/follow-ups/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, scheduledAt, notes, actionTaken } = req.body;
+
+    if (!req.user || (req.user.role !== "COUNSELLOR" && req.user.role !== "ADMIN")) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    // Convert status from lowercase to UPPERCASE for database
+    const dbStatus = status ? status.toUpperCase().replace("-", "_") : undefined;
+
+    const followUp = await prisma.followUp.update({
+      where: { id },
+      data: {
+        ...(dbStatus && { status: dbStatus as any }),
+        ...(scheduledAt !== undefined && {
+          scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+        }),
+        ...(notes !== undefined && { notes: notes || null }),
+        ...(actionTaken !== undefined && { actionTaken: actionTaken || null }),
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // Convert back to lowercase for frontend
+    res.json({
+      ...followUp,
+      status: followUp.status.toLowerCase() as any,
+      createdAt: followUp.createdAt.toISOString(),
+      updatedAt: followUp.updatedAt.toISOString(),
+      scheduledAt: followUp.scheduledAt?.toISOString() || null,
+    });
+  } catch (err: any) {
+    console.error("Error updating follow-up:", err);
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Follow-up not found" });
+    }
+    res.status(500).json({ error: "Failed to update follow-up" });
+  }
+});
+
 app.get("/api/dashboard/flags", authMiddleware, async (req, res) => {
   try {
     if (!req.user || (req.user.role !== "COUNSELLOR" && req.user.role !== "ADMIN")) {

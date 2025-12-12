@@ -34,6 +34,7 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  createdFollowUps FollowUp[]
 
   @@map("users")
 }
@@ -60,6 +61,7 @@ model Student {
   flags     Flag[]
   safetyPlan SafetyPlan?
   notificationPreference StudentNotificationPreference?
+  followUps FollowUp[]
 
   @@map("students")
 }
@@ -99,6 +101,7 @@ model CheckIn {
   safetyRisk    String?    @map("safety_risk") // 'low' | 'moderate' | 'high' | 'immediate'
   
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  followUps FollowUp[]
 
   @@index([studentId])
   @@index([createdAt])
@@ -230,5 +233,44 @@ model SafetyPlan {
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   
   @@map("safety_plans")
+}
+
+// Follow-ups for counselor workflow
+model FollowUp {
+  id          String          @id @default(uuid())
+  
+  // Relations
+  studentId   String          @map("student_id")
+  student     Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  createdById String          @map("created_by_id") // counselor / staff who created it
+  createdBy   User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  
+  // Optional: which check-in triggered this follow-up
+  checkInId   String?         @map("check_in_id")
+  checkIn     CheckIn?        @relation(fields: [checkInId], references: [id], onDelete: SetNull)
+  
+  // Core fields
+  status      FollowUpStatus
+  scheduledAt DateTime?       @map("scheduled_at") // date + time of meeting / call
+  notes       String?         @db.Text // counselor notes
+  actionTaken String?         @map("action_taken") @db.Text // e.g. "Met with student", "Called parent"
+  
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  
+  @@index([studentId])
+  @@index([createdById])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("follow_ups")
+}
+
+enum FollowUpStatus {
+  PENDING
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  NO_ACTION_NEEDED
 }
 
