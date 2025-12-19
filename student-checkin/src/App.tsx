@@ -1643,11 +1643,6 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
 
       {step === 2 && (
         <div className="card-grid cognitive-grid">
-          <CognitiveMiniTask score={cognitiveScore} onScoreChange={setCognitiveScore} />
-          <ScreenUseReflection 
-            value={form.screenUseImpact}
-            onChange={(value) => setForm((prev) => ({ ...prev, screenUseImpact: value }))}
-          />
           <div className="card summary-card">
             <h3>Your weekly snapshot</h3>
             <ul>
@@ -1668,6 +1663,11 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
             </ul>
             <p>Ready to share this privately with your student support team?</p>
           </div>
+          <CognitiveMiniTask score={cognitiveScore} onScoreChange={setCognitiveScore} />
+          <ScreenUseReflection 
+            value={form.screenUseImpact}
+            onChange={(value) => setForm((prev) => ({ ...prev, screenUseImpact: value }))}
+          />
         </div>
       )}
 

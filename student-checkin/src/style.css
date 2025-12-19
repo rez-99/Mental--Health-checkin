@@ -654,6 +654,11 @@ button.ghost {
   color: #0f172a;
 }
 
+.summary-card {
+  grid-column: 1 / -1; /* Span full width */
+  order: -1; /* Show first */
+}
+
 .summary-card ul {
   list-style: disc;
   padding-left: 1rem;
