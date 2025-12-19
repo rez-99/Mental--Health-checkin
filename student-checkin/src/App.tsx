@@ -42,6 +42,7 @@ type FollowUpRecord = {
   flaggedDate: string
   status: FollowUpStatus
   scheduledDate?: string
+  scheduledTime?: string
   counselorNotes?: string
   actionTaken?: string
   createdAt: string
@@ -2839,6 +2840,7 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
   const [formData, setFormData] = useState({
     status: 'pending' as FollowUpStatus,
     scheduledDate: '',
+    scheduledTime: '',
     counselorNotes: '',
     actionTaken: '',
   })
@@ -2871,6 +2873,7 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
     setFormData({
       status: followUp.status,
       scheduledDate: followUp.scheduledDate || '',
+      scheduledTime: followUp.scheduledTime || '',
       counselorNotes: followUp.counselorNotes || '',
       actionTaken: followUp.actionTaken || '',
     })
@@ -2922,7 +2925,10 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
                 </div>
               )}
               {followUp.scheduledDate && (
-                <p className="follow-up-scheduled">Scheduled: {formatDate(followUp.scheduledDate)}</p>
+                <p className="follow-up-scheduled">
+                  Scheduled: {formatDate(followUp.scheduledDate)}
+                  {followUp.scheduledTime && ` at ${followUp.scheduledTime}`}
+                </p>
               )}
               {followUp.counselorNotes && (
                 <p className="follow-up-notes">{followUp.counselorNotes}</p>
@@ -2970,6 +2976,14 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
               type="date"
               value={formData.scheduledDate}
               onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
+            />
+          </label>
+          <label>
+            Scheduled time
+            <input
+              type="time"
+              value={formData.scheduledTime}
+              onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
             />
           </label>
           <label>
