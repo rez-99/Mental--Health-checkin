@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { studentApi, createMockToken, setMockToken } from './api'
-import { useAuth, ProtectedRoute } from './auth'
-import { LoginPage } from './LoginPage'
+// TEMPORARILY DISABLED: Authentication imports
+// import { useAuth, ProtectedRoute } from './auth'
+// import { LoginPage } from './LoginPage'
 
 type CheckInEntry = {
   id: string
@@ -602,34 +603,23 @@ const detectDevice = (): DeviceInfo => {
 }
 
 export function App() {
-  const { user, isAuthenticated, isLoading, logout } = useAuth()
+  // TEMPORARILY DISABLED: Authentication
+  // const { user, isAuthenticated, isLoading, logout } = useAuth()
   const [activeView, setActiveView] = useState<View>('student')
   
-  // Show login page if not authenticated
-  if (isLoading) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <p>Loading...</p>
-      </div>
-    )
-  }
+  // TEMPORARILY DISABLED: Show login page if not authenticated
+  // For demo purposes, we'll allow access without login
+  // if (isLoading) {
+  //   return (
+  //     <div style={{ padding: '2rem', textAlign: 'center' }}>
+  //       <p>Loading...</p>
+  //     </div>
+  //   )
+  // }
   
-  if (!isAuthenticated) {
-    return <LoginPage />
-  }
-  
-  // Set default view based on user role
-  useEffect(() => {
-    if (user) {
-      if (user.role === 'STUDENT' && activeView !== 'student') {
-        setActiveView('student')
-      } else if (user.role === 'COUNSELLOR' && activeView === 'student') {
-        setActiveView('staff')
-      } else if (user.role === 'PARENT' && activeView === 'student') {
-        setActiveView('parent')
-      }
-    }
-  }, [user])
+  // if (!isAuthenticated) {
+  //   return <LoginPage />
+  // }
   const [deviceInfo] = useState<DeviceInfo>(() => {
     const stored = localStorage.getItem(DEVICE_INFO_KEY)
     if (stored) {
@@ -1055,8 +1045,8 @@ export function App() {
   return (
     <div className="app-shell">
       <header className={`hero ${activeView === 'student' ? 'hero-student' : ''}`}>
-        {/* Logout button */}
-        {user && (
+        {/* Logout button - TEMPORARILY DISABLED FOR DEMO */}
+        {/* {user && (
           <div style={{ 
             position: 'absolute', 
             top: '1rem', 
@@ -1083,7 +1073,7 @@ export function App() {
               Logout
             </button>
           </div>
-        )}
+        )} */}
         <div className="hero__content">
           {activeView === 'student' ? (
             <>
@@ -1116,21 +1106,15 @@ export function App() {
                   How this works / Privacy
                 </button>
               </div>
-              {/* Only show navigation links based on user role */}
-              {user && (user.role === 'COUNSELLOR' || user.role === 'ADMIN') && (
-                <div className="cta-group" style={{ marginTop: '1.5rem', justifyContent: 'center' }}>
-                  <button className="ghost" onClick={() => setActiveView('staff')}>
-                    {t.counselorDashboard}
-                  </button>
-                </div>
-              )}
-              {user && user.role === 'PARENT' && (
-                <div className="cta-group" style={{ marginTop: '1.5rem', justifyContent: 'center' }}>
-                  <button className="ghost" onClick={() => setActiveView('parent')}>
-                    Parent/Caregiver Portal
-                  </button>
-                </div>
-              )}
+              {/* Show all navigation links for demo */}
+              <div className="cta-group" style={{ marginTop: '1.5rem', justifyContent: 'center' }}>
+                <button className="ghost" onClick={() => setActiveView('staff')}>
+                  {t.counselorDashboard}
+                </button>
+                <button className="ghost" onClick={() => setActiveView('parent')}>
+                  Parent/Caregiver Portal
+                </button>
+              </div>
             </>
           ) : (
             <>
@@ -1146,24 +1130,16 @@ export function App() {
                 Universal screening helps us find and support students who need help, even when it's not obvious.
               </p>
               <div className="cta-group">
-                {/* Show student check-in for all roles */}
-                {(user?.role === 'STUDENT' || user?.role === 'COUNSELLOR' || user?.role === 'ADMIN') && (
-                  <button className="ghost" onClick={() => setActiveView('student')}>
-                    {t.studentCheckIn}
-                  </button>
-                )}
-                {/* Show counselor dashboard only for counselors and admins */}
-                {(user?.role === 'COUNSELLOR' || user?.role === 'ADMIN') && (
-                  <button className={activeView === 'staff' ? 'primary' : 'ghost'} onClick={() => setActiveView('staff')}>
-                    {t.counselorDashboard}
-                  </button>
-                )}
-                {/* Show parent portal only for parents */}
-                {user?.role === 'PARENT' && (
-                  <button className={activeView === 'parent' ? 'primary' : 'ghost'} onClick={() => setActiveView('parent')}>
-                    Parent/Caregiver Portal
-                  </button>
-                )}
+                {/* Show all links for demo */}
+                <button className="ghost" onClick={() => setActiveView('student')}>
+                  {t.studentCheckIn}
+                </button>
+                <button className={activeView === 'staff' ? 'primary' : 'ghost'} onClick={() => setActiveView('staff')}>
+                  {t.counselorDashboard}
+                </button>
+                <button className={activeView === 'parent' ? 'primary' : 'ghost'} onClick={() => setActiveView('parent')}>
+                  Parent/Caregiver Portal
+                </button>
               </div>
             </>
           )}
@@ -1205,36 +1181,30 @@ export function App() {
             }}
           />
         ) : activeView === 'student' ? (
-          <ProtectedRoute allowedRoles={['STUDENT', 'COUNSELLOR', 'ADMIN']}>
-            <StudentCheckIn 
-              onSubmit={handleCheckInSubmit} 
-              lastSaved={lastSaved} 
-              students={students}
-              preferences={preferences}
-              onPreferencesChange={setPreferences}
-              resources={resources}
-              translations={t}
-              onCalmRoomSession={(session) => {
-                setCalmRoomSessions(prev => [...prev, session])
-                // Log as a skill used
-                const engagement = JSON.parse(localStorage.getItem(ENGAGEMENT_KEY) || '{}')
-                if (!engagement.skillsUnlocked) engagement.skillsUnlocked = []
-                if (!engagement.skillsUnlocked.includes('calm_room')) {
-                  engagement.skillsUnlocked.push('calm_room')
-                  localStorage.setItem(ENGAGEMENT_KEY, JSON.stringify(engagement))
-                }
-              }}
-              deviceInfo={deviceInfo}
-            />
-          </ProtectedRoute>
+          <StudentCheckIn 
+            onSubmit={handleCheckInSubmit} 
+            lastSaved={lastSaved} 
+            students={students}
+            preferences={preferences}
+            onPreferencesChange={setPreferences}
+            resources={resources}
+            translations={t}
+            onCalmRoomSession={(session) => {
+              setCalmRoomSessions(prev => [...prev, session])
+              // Log as a skill used
+              const engagement = JSON.parse(localStorage.getItem(ENGAGEMENT_KEY) || '{}')
+              if (!engagement.skillsUnlocked) engagement.skillsUnlocked = []
+              if (!engagement.skillsUnlocked.includes('calm_room')) {
+                engagement.skillsUnlocked.push('calm_room')
+                localStorage.setItem(ENGAGEMENT_KEY, JSON.stringify(engagement))
+              }
+            }}
+            deviceInfo={deviceInfo}
+          />
         ) : activeView === 'staff' ? (
-          <ProtectedRoute allowedRoles={['COUNSELLOR', 'ADMIN']}>
-            <CounselorDashboard students={students} onStudentsUpdate={setStudents} />
-          </ProtectedRoute>
+          <CounselorDashboard students={students} onStudentsUpdate={setStudents} />
         ) : activeView === 'parent' ? (
-          <ProtectedRoute allowedRoles={['PARENT']}>
-            <ParentPortal students={students} />
-          </ProtectedRoute>
+          <ParentPortal students={students} />
         ) : null}
       </main>
       
