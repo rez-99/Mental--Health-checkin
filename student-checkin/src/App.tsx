@@ -1406,6 +1406,12 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
     return parsed
   }, [submitted])
   
+  // Scroll to top when success modal opens to ensure it's visible
+  useEffect(() => {
+    if (submitted && lastSaved) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [submitted, lastSaved])
   
   // Evolving questions based on check-in count
   const getEvolvingQuestions = () => {
@@ -1432,6 +1438,52 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
 
   const handleNext = () => setStep((prev) => Math.min(prev + 1, 3))
   const handleBack = () => setStep((prev) => Math.max(prev - 1, 0))
+
+  const generateStudentTips = (entry: CheckInEntry | null): string[] => {
+    if (!entry) return []
+    const tips: string[] = []
+    
+    // Mood-based tips
+    if (entry.mood <= 2) {
+      tips.push('💚 Try spending some time outdoors or doing something active—even a short walk can help.')
+      tips.push('🌱 Small routines can help when things feel tough. What\'s one thing you can do at the same time each day?')
+    } else if (entry.mood >= 4) {
+      tips.push('✨ You\'re doing well! Keep doing what\'s working for you.')
+    }
+    
+    // Sleep-based tips
+    if (entry.sleepQuality <= 2) {
+      tips.push('😴 Try limiting screens 1 hour before bed—it can really help with sleep quality.')
+      tips.push('🌙 A calming bedtime routine (like reading or gentle stretching) can make a big difference.')
+    }
+    
+    // Worry-based tips
+    if (entry.worries >= 4) {
+      tips.push('💭 When worries feel heavy, try writing them down or talking to someone you trust.')
+      tips.push('🎯 Break big worries into smaller pieces—what\'s one small step you can take?')
+    }
+    
+    // Energy-based tips
+    if (entry.energy <= 2) {
+      tips.push('⚡ Regular movement, even just a few minutes, can help boost energy naturally.')
+      tips.push('🥗 Eating regular meals and staying hydrated helps keep energy steady.')
+    }
+    
+    // Burden-based tips
+    if (entry.burden >= 4) {
+      tips.push('🤝 Remember: reaching out for support is a sign of strength, not weakness.')
+      tips.push('💛 You matter, and your feelings matter. It\'s okay to not be okay sometimes.')
+    }
+    
+    // General encouragement if no specific concerns
+    if (tips.length === 0) {
+      tips.push('🌟 Keep up the great work checking in! Your consistency helps adults notice patterns and offer support.')
+      tips.push('💚 Remember: good days and tough days both matter. You\'re doing your best.')
+    }
+    
+    // Limit to 2-3 tips to keep it manageable
+    return tips.slice(0, 3)
+  }
 
   const calculateSafetyRisk = (): 'low' | 'moderate' | 'high' | 'immediate' => {
     // ASQ risk assessment (validated tool)
@@ -1676,6 +1728,18 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
               {engagement.currentStreak === 1 && ' We\'re glad you\'re here today, even on a hard week. 💛'}
             </h2>
             <p className="modal-note">Adults see trends to offer support—never diagnoses. Your check-in from {formatDate(lastSaved.createdAt)} is on file.</p>
+            
+            {generateStudentTips(lastSaved).length > 0 && (
+              <div className="success-tips">
+                <h3>💡 Tips for this week:</h3>
+                <ul>
+                  {generateStudentTips(lastSaved).map((tip, i) => (
+                    <li key={i}>{tip}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
             {checkInCount >= 2 && (
               <button type="button" className="primary" onClick={() => { setShowSkills(true); setSubmitted(false); }}>
                 Try a quick skill practice →
