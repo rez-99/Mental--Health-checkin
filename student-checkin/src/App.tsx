@@ -1366,6 +1366,7 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
   const [cognitiveScore, setCognitiveScore] = useState<number | undefined>()
   const [step, setStep] = useState(0)
   const [submitted, setSubmitted] = useState(false)
+  const [submittedEntry, setSubmittedEntry] = useState<CheckInEntry | null>(null)
   const [showCrisisResponse, setShowCrisisResponse] = useState(false)
   const [safetyRisk, setSafetyRisk] = useState<'low' | 'moderate' | 'high' | 'immediate' | null>(null)
   const [showSkills, setShowSkills] = useState(false)
@@ -1408,10 +1409,10 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
   
   // Scroll to top when success modal opens to ensure it's visible
   useEffect(() => {
-    if (submitted && lastSaved) {
+    if (submitted && (submittedEntry || lastSaved)) {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
-  }, [submitted, lastSaved])
+  }, [submitted, submittedEntry, lastSaved])
   
   // Evolving questions based on check-in count
   const getEvolvingQuestions = () => {
@@ -1505,7 +1506,7 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
 
   const handleSubmit = () => {
     const risk = calculateSafetyRisk()
-    const entry = { 
+    const entry: CheckInEntry = { 
       ...form, 
       cognitiveScore, 
       studentName: form.studentName || 'Anonymous Student',
@@ -1517,8 +1518,11 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
       asqAttempt: asqAnswers.attempt,
       safetyRisk: risk,
       crisisAlertTriggered: risk === 'high' || risk === 'immediate',
+      id: `checkin_${Date.now()}`,
+      createdAt: new Date().toISOString(),
     }
     onSubmit(entry)
+    setSubmittedEntry(entry)
     setSubmitted(true)
     setStep(0)
     setForm((prev) => ({ ...prev, notes: '', screenUseImpact: undefined }))
@@ -1711,46 +1715,53 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
         </button>
       </div>
 
-      {submitted && lastSaved && (
-        <div className="modal-overlay" onClick={() => setSubmitted(false)}>
-          <div className="modal-content success-modal" onClick={(e) => e.stopPropagation()}>
-            <button 
-              type="button" 
-              className="modal-close" 
-              onClick={() => setSubmitted(false)}
-              aria-label="Close"
-            >
-              ×
-            </button>
-            <div className="success-icon">✓</div>
-            <h2>
-              Thanks for checking in, {lastSaved.studentName}! {engagement.currentStreak > 1 && ` You're on a ${engagement.currentStreak} week streak! 🔥`}
-              {engagement.currentStreak === 1 && ' We\'re glad you\'re here today, even on a hard week. 💛'}
-            </h2>
-            <p className="modal-note">Adults see trends to offer support—never diagnoses. Your check-in from {formatDate(lastSaved.createdAt)} is on file.</p>
-            
-            {generateStudentTips(lastSaved).length > 0 && (
-              <div className="success-tips">
-                <h3>💡 Tips for this week:</h3>
-                <ul>
-                  {generateStudentTips(lastSaved).map((tip, i) => (
-                    <li key={i}>{tip}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            
-            {checkInCount >= 2 && (
-              <button type="button" className="primary" onClick={() => { setShowSkills(true); setSubmitted(false); }}>
-                Try a quick skill practice →
+      {submitted && (submittedEntry || lastSaved) && (() => {
+        const entryToShow = submittedEntry || lastSaved!
+        const handleClose = () => {
+          setSubmitted(false)
+          setSubmittedEntry(null)
+        }
+        return (
+          <div className="modal-overlay" onClick={handleClose}>
+            <div className="modal-content success-modal" onClick={(e) => e.stopPropagation()}>
+              <button 
+                type="button" 
+                className="modal-close" 
+                onClick={handleClose}
+                aria-label="Close"
+              >
+                ×
               </button>
-            )}
-            <button type="button" className="ghost" onClick={() => setSubmitted(false)}>
-              Got it
-            </button>
+              <div className="success-icon">✓</div>
+              <h2>
+                Thanks for checking in, {entryToShow.studentName}! {engagement.currentStreak > 1 && ` You're on a ${engagement.currentStreak} week streak! 🔥`}
+                {engagement.currentStreak === 1 && ' We\'re glad you\'re here today, even on a hard week. 💛'}
+              </h2>
+              <p className="modal-note">Adults see trends to offer support—never diagnoses. Your check-in from {formatDate(entryToShow.createdAt)} is on file.</p>
+              
+              {generateStudentTips(entryToShow).length > 0 && (
+                <div className="success-tips">
+                  <h3>💡 Tips for this week:</h3>
+                  <ul>
+                    {generateStudentTips(entryToShow).map((tip, i) => (
+                      <li key={i}>{tip}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {checkInCount >= 2 && (
+                <button type="button" className="primary" onClick={() => { setShowSkills(true); handleClose(); }}>
+                  Try a quick skill practice →
+                </button>
+              )}
+              <button type="button" className="ghost" onClick={handleClose}>
+                Got it
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
       
       {showSkills && <CBTMicroSkills onClose={() => setShowSkills(false)} />}
       {showPreferences && (
