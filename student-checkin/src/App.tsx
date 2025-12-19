@@ -2741,35 +2741,53 @@ const TrendGraph = ({ history }: { history: CheckInEntry[] }) => {
 
   // Average values for same-day entries and sort chronologically (oldest first)
   const dailyData = Object.values(groupedByDay)
-    .map(day => ({
-      date: day.date,
-      dateObj: new Date(day.date),
-      mood: day.mood / day.count,
-      stress: day.stress / day.count,
-      sleep: day.sleep / day.count,
-      count: day.count
-    }))
+    .map(day => {
+      // Create date at local midnight to avoid timezone issues
+      const [year, month, dayNum] = day.date.split('-').map(Number)
+      const dateObj = new Date(year, month - 1, dayNum)
+      return {
+        date: day.date,
+        dateObj,
+        mood: day.mood / day.count,
+        stress: day.stress / day.count,
+        sleep: day.sleep / day.count,
+        count: day.count
+      }
+    })
     .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime()) // Ensure chronological order
 
   // Filter based on zoom level
   const now = new Date()
+  const nowTime = now.getTime()
+  
   let filteredData = dailyData
   
   if (zoomLevel === 'month') {
-    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-    filteredData = dailyData.filter(d => d.dateObj >= monthAgo)
+    const monthAgo = nowTime - (30 * 24 * 60 * 60 * 1000)
+    filteredData = dailyData.filter(d => d.dateObj.getTime() >= monthAgo)
   } else if (zoomLevel === 'week') {
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    filteredData = dailyData.filter(d => d.dateObj >= weekAgo)
+    const weekAgo = nowTime - (7 * 24 * 60 * 60 * 1000)
+    filteredData = dailyData.filter(d => d.dateObj.getTime() >= weekAgo)
   } else if (zoomLevel === 'day') {
-    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-    filteredData = dailyData.filter(d => d.dateObj >= dayAgo)
+    const dayAgo = nowTime - (24 * 60 * 60 * 1000)
+    // For day view, show individual check-ins from the last 24 hours
+    filteredData = sortedHistory
+      .filter(entry => {
+        const entryTime = new Date(entry.createdAt).getTime()
+        return entryTime >= dayAgo
+      })
+      .map(entry => ({
+        date: entry.createdAt,
+        dateObj: new Date(entry.createdAt),
+        mood: entry.mood,
+        stress: entry.worries,
+        sleep: entry.sleepQuality,
+        count: 1
+      }))
+      .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
   }
 
-  // If no data after filtering, show all
-  if (filteredData.length === 0) {
-    filteredData = dailyData
-  }
+  // Don't fall back to all data - keep filteredData as is (might be empty)
 
   const chartWidth = 320
   const chartHeight = 160
@@ -2836,11 +2854,28 @@ const TrendGraph = ({ history }: { history: CheckInEntry[] }) => {
           </button>
         </div>
       </div>
-      <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
-        <path d={buildPath('mood')} stroke="#4f46e5" fill="none" strokeWidth={3} />
-        <path d={buildPath('sleep')} stroke="#14b8a6" fill="none" strokeWidth={3} strokeDasharray="6 6" />
-        <path d={buildPath('stress')} stroke="#f97316" fill="none" strokeWidth={3} strokeDasharray="2 6" />
-      </svg>
+      {filteredData.length === 0 && zoomLevel !== 'all' ? (
+        <div style={{ 
+          padding: '2rem', 
+          textAlign: 'center', 
+          color: '#94a3b8',
+          fontSize: '0.9rem',
+          background: '#f8fafc',
+          borderRadius: '12px',
+          minHeight: `${chartHeight}px`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          No data available for the selected time period
+        </div>
+      ) : (
+        <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
+          <path d={buildPath('mood')} stroke="#4f46e5" fill="none" strokeWidth={3} />
+          <path d={buildPath('sleep')} stroke="#14b8a6" fill="none" strokeWidth={3} strokeDasharray="6 6" />
+          <path d={buildPath('stress')} stroke="#f97316" fill="none" strokeWidth={3} strokeDasharray="2 6" />
+        </svg>
+      )}
       <div className="legend">
         <span>
           <i className="dot mood" /> Mood
