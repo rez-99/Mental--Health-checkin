@@ -2366,6 +2366,72 @@ const CounselorDashboard = ({ students, onStudentsUpdate }: CounselorDashboardPr
               )}
             </ul>
           </div>
+
+          <div className="card">
+            <h3>Risk Ranges Summary</h3>
+            <p className="meta-note" style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>
+              Students grouped by concern score ranges
+            </p>
+            <table className="risk-ranges-table">
+              <thead>
+                <tr>
+                  <th>Risk Level</th>
+                  <th>Count</th>
+                  <th>Students</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const grouped = studentsWithConcern.reduce((acc, student) => {
+                    const latest = student.history.at(-1)
+                    const risk = calculateRiskScore(latest)
+                    const band = riskBand(risk)
+                    if (!acc[band]) {
+                      acc[band] = []
+                    }
+                    acc[band].push(student)
+                    return acc
+                  }, {} as Record<string, StudentRecord[]>)
+                  
+                  const ranges = [
+                    { band: 'high', label: 'High (70+)', color: '#ef4444' },
+                    { band: 'medium', label: 'Medium (40-69)', color: '#f59e0b' },
+                    { band: 'low', label: 'Low (0-39)', color: '#22c55e' }
+                  ]
+                  
+                  return ranges.map(({ band, label, color }) => {
+                    const students = grouped[band] || []
+                    return (
+                      <tr key={band}>
+                        <td>
+                          <span className="risk-range-badge" style={{ backgroundColor: color }}>
+                            {label}
+                          </span>
+                        </td>
+                        <td><strong>{students.length}</strong></td>
+                        <td>
+                          {students.length > 0 ? (
+                            <div className="risk-range-students">
+                              {students.slice(0, 3).map(s => (
+                                <span key={s.id} className="student-chip" onClick={() => setSelectedId(s.id)}>
+                                  {s.name}
+                                </span>
+                              ))}
+                              {students.length > 3 && (
+                                <span className="student-chip-more">+{students.length - 3} more</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ color: '#94a3b8' }}>None</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })
+                })()}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {selectedStudent && (
