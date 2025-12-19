@@ -2477,7 +2477,12 @@ const CounselorDashboard = ({ students, onStudentsUpdate }: CounselorDashboardPr
                   onStudentsUpdate(students.map((s: StudentRecord) => s.id === updated.id ? updated : s))
                 }} 
               />
-              <ActionButtons studentName={selectedStudent.name} />
+              <ActionButtons 
+                student={selectedStudent} 
+                onUpdate={(updated) => {
+                  onStudentsUpdate(students.map((s: StudentRecord) => s.id === updated.id ? updated : s))
+                }} 
+              />
             </div>
           </div>
         )}
@@ -3014,17 +3019,115 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
   )
 }
 
-const ActionButtons = ({ studentName }: { studentName: string }) => {
+type ActionButtonsProps = {
+  student: StudentRecord
+  onUpdate: (student: StudentRecord) => void
+}
+
+const ActionButtons = ({ student, onUpdate }: ActionButtonsProps) => {
   const [message, setMessage] = useState<string | null>(null)
+  const [showScheduleForm, setShowScheduleForm] = useState(false)
+  const [scheduleData, setScheduleData] = useState({
+    date: '',
+    time: '',
+    notes: ''
+  })
+
+  const handleScheduleCheckIn = () => {
+    if (!scheduleData.date) {
+      setMessage('Please select a date')
+      setTimeout(() => setMessage(null), 2500)
+      return
+    }
+
+    // Create a new follow-up record
+    const latestCheckIn = student.history.at(-1)
+    if (!latestCheckIn) {
+      setMessage('No check-in found to schedule follow-up')
+      setTimeout(() => setMessage(null), 2500)
+      return
+    }
+
+    const followUp: FollowUpRecord = {
+      id: randomId(),
+      studentId: student.id,
+      checkInId: latestCheckIn.id,
+      flaggedDate: latestCheckIn.createdAt,
+      status: 'scheduled',
+      scheduledDate: scheduleData.date,
+      scheduledTime: scheduleData.time,
+      counselorNotes: scheduleData.notes,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    const updated = {
+      ...student,
+      followUps: [...(student.followUps || []), followUp]
+    }
+    onUpdate(updated)
+
+    // Update localStorage
+    const stored = localStorage.getItem(FOLLOWUPS_KEY)
+    const allFollowUps = stored ? JSON.parse(stored) : []
+    allFollowUps.push(followUp)
+    localStorage.setItem(FOLLOWUPS_KEY, JSON.stringify(allFollowUps))
+
+    setMessage(`Check-in scheduled for ${student.name} on ${scheduleData.date}${scheduleData.time ? ` at ${scheduleData.time}` : ''}`)
+    setShowScheduleForm(false)
+    setScheduleData({ date: '', time: '', notes: '' })
+    setTimeout(() => setMessage(null), 4000)
+  }
 
   const trigger = (text: string) => {
-    setMessage(`${text} recorded for ${studentName}`)
+    setMessage(`${text} recorded for ${student.name}`)
     setTimeout(() => setMessage(null), 2500)
   }
 
   return (
     <div className="actions">
-      <button onClick={() => trigger('Schedule check-in')}>Schedule check-in</button>
+      <button onClick={() => setShowScheduleForm(!showScheduleForm)}>Schedule check-in</button>
+      {showScheduleForm && (
+        <div className="schedule-form">
+          <label>
+            Date
+            <input
+              type="date"
+              value={scheduleData.date}
+              onChange={(e) => setScheduleData({ ...scheduleData, date: e.target.value })}
+              required
+            />
+          </label>
+          <label>
+            Time
+            <input
+              type="time"
+              value={scheduleData.time}
+              onChange={(e) => setScheduleData({ ...scheduleData, time: e.target.value })}
+            />
+          </label>
+          <label>
+            Notes (optional)
+            <textarea
+              rows={2}
+              value={scheduleData.notes}
+              onChange={(e) => setScheduleData({ ...scheduleData, notes: e.target.value })}
+              placeholder="e.g., Follow up on mood improvement"
+            />
+          </label>
+          <div className="schedule-form-actions">
+            <button type="button" className="primary" onClick={handleScheduleCheckIn}>
+              Schedule
+            </button>
+            <button type="button" className="ghost" onClick={() => {
+              setShowScheduleForm(false)
+              setScheduleData({ date: '', time: '', notes: '' })
+            }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       <button onClick={() => trigger('Send supportive message')}>Send supportive message</button>
       <button onClick={() => trigger('Marked as followed by counselor')}>Mark as followed</button>
       {message && <p className="action-status">{message}</p>}
