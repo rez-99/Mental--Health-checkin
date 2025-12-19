@@ -2193,9 +2193,8 @@ const CounselorDashboard = ({ students, onStudentsUpdate }: CounselorDashboardPr
   return (
     <section className="panel">
       <div className="panel__header">
-        <h2>Counselor & school dashboard</h2>
-        <p>Universal screening results. Validated measures (PHQ-A, GAD-7) help identify students who need support. 
-        Clear referral workflow: flagged → counselor notified → structured follow-up.</p>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Counselor & school dashboard</h2>
+        <p style={{ fontSize: '0.9rem', color: '#64748b' }}>Universal screening results. Validated measures (PHQ-A, GAD-7) help identify students who need support.</p>
         <div className="staff-reminder" style={{ 
           background: '#fef3c7', 
           border: '1px solid #fcd34d', 
@@ -2247,11 +2246,15 @@ const CounselorDashboard = ({ students, onStudentsUpdate }: CounselorDashboardPr
         <AuditLogViewer auditLogs={auditLogs} />
       ) : (
       <div className="dashboard-grid">
-        <div className="dashboard-column">
+        <div className="dashboard-column dashboard-column-left">
+          <div className="section-header">
+            <h3 className="section-title">Who needs me?</h3>
+          </div>
+          
           {safetyAlerts.length > 0 && (
             <div className="card safety-alert-card">
-              <h3>🚨 Safety Alerts ({safetyAlerts.length})</h3>
-              <p className="safety-alert-note">High-priority: Students with suicide risk screening positives</p>
+              <h3 className="safety-alert-title">🚨 Safety Alerts ({safetyAlerts.length})</h3>
+              <p className="safety-alert-note">Students with suicide risk screening positives</p>
               <ul className="student-list">
                 {safetyAlerts.map((student) => {
                   const latest = student.history.at(-1)
@@ -2277,7 +2280,7 @@ const CounselorDashboard = ({ students, onStudentsUpdate }: CounselorDashboardPr
 
           {needsAttention.length > 0 && (
             <div className="card attention-card">
-              <h3>⚠️ Needs Attention ({needsAttention.length})</h3>
+              <h3 className="attention-title">⚠️ Needs Attention ({needsAttention.length})</h3>
               <ul className="student-list">
                 {needsAttention.map((student) => {
                   const latest = student.history.at(-1)
@@ -2302,9 +2305,14 @@ const CounselorDashboard = ({ students, onStudentsUpdate }: CounselorDashboardPr
             </div>
           )}
 
-          <div className="card">
-            <h3 style={{ marginBottom: '0.5rem' }}>All students (sorted by concern score)</h3>
-            <p className="meta-note" style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>
+          <div className="card students-list-card">
+            <div className="students-list-header">
+              <h3>All students</h3>
+              <p className="students-list-subtitle">
+                Sorted by concern score • <span style={{ color: '#ef4444' }}>Red</span> = highest concern, <span style={{ color: '#22c55e' }}>Green</span> = lowest
+              </p>
+            </div>
+            <p className="meta-note" style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
               Concern score combines recent check-ins, trends, and safety flags. Not shown to students.
             </p>
             <input
@@ -2333,7 +2341,7 @@ const CounselorDashboard = ({ students, onStudentsUpdate }: CounselorDashboardPr
                       <span className="status-dot" data-band={band} />
                       <div>
                         <p className="name">{student.name}</p>
-                        <p className="meta">
+                        <p className="meta" style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
                           {student.grade} • Advisor {student.advisor}
                         </p>
                       </div>
@@ -2350,30 +2358,37 @@ const CounselorDashboard = ({ students, onStudentsUpdate }: CounselorDashboardPr
             </div>
           </div>
 
-          <div className="card">
-            <h3>Big movers</h3>
-            <ul className="mover-list">
-              {movers.map(({ student, delta }) => (
-                <li key={student.id}>
-                  <p>{student.name}</p>
-                  <span className={`delta ${delta >= 0 ? 'up' : 'down'}`}>{delta >= 0 ? '+' : ''}{delta}</span>
-                </li>
-              ))}
-              {movers.length === 0 && (
-                <li>
-                  <p>Anonymous Student</p>
-                  <span className="delta" style={{ color: '#64748b' }}>+0</span>
-                </li>
-              )}
-            </ul>
-          </div>
+          <div className="analytics-accordion">
+            <details className="analytics-details">
+              <summary className="analytics-summary">
+                <span>Analytics</span>
+                <span className="analytics-count">Big movers ({movers.length}) • Risk ranges</span>
+              </summary>
+              <div className="analytics-content">
+                <div className="card analytics-card">
+                  <h4>Big movers</h4>
+                  <ul className="mover-list">
+                    {movers.map(({ student, delta }) => (
+                      <li key={student.id}>
+                        <p>{student.name}</p>
+                        <span className={`delta ${delta >= 0 ? 'up' : 'down'}`}>{delta >= 0 ? '+' : ''}{delta}</span>
+                      </li>
+                    ))}
+                    {movers.length === 0 && (
+                      <li>
+                        <p>No significant changes</p>
+                        <span className="delta" style={{ color: '#64748b' }}>+0</span>
+                      </li>
+                    )}
+                  </ul>
+                </div>
 
-          <div className="card">
-            <h3>Risk Ranges Summary</h3>
-            <p className="meta-note" style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>
-              Students grouped by concern score ranges
-            </p>
-            <table className="risk-ranges-table">
+                <div className="card analytics-card">
+                  <h4>Risk Ranges Summary</h4>
+                  <p className="meta-note" style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>
+                    Students grouped by concern score ranges
+                  </p>
+                  <table className="risk-ranges-table">
               <thead>
                 <tr>
                   <th>Risk Level</th>
@@ -2431,12 +2446,18 @@ const CounselorDashboard = ({ students, onStudentsUpdate }: CounselorDashboardPr
                   })
                 })()}
               </tbody>
-            </table>
+                  </table>
+                </div>
+              </div>
+            </details>
           </div>
         </div>
 
         {selectedStudent && (
-          <div className="dashboard-column">
+          <div className="dashboard-column dashboard-column-right">
+            <div className="section-header">
+              <h3 className="section-title">What do I do for this student?</h3>
+            </div>
             <div className="card detail-card">
               <header>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
@@ -2921,22 +2942,28 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
           return (
             <div key={followUp.id} className="follow-up-item">
               <div className="follow-up-header">
-                <span className={`status-badge ${followUp.status}`}>{followUp.status}</span>
-                <span className="follow-up-date">{formatDate(followUp.flaggedDate)}</span>
+                <span className={`status-badge ${followUp.status}`}>
+                  {followUp.status.replace('_', ' ').toUpperCase()}
+                </span>
+                <span className="follow-up-date" style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+                  Flagged: {formatDate(followUp.flaggedDate)}
+                </span>
               </div>
-              {checkIn && (
-                <div className="follow-up-scores">
-                  PHQ: {checkIn.phqScore ?? 0} | GAD: {checkIn.gadScore ?? 0}
-                </div>
-              )}
               {followUp.scheduledDate && (
-                <p className="follow-up-scheduled">
-                  Scheduled: {formatDate(followUp.scheduledDate)}
+                <p className="follow-up-scheduled" style={{ 
+                  fontWeight: 600, 
+                  fontSize: '0.95rem', 
+                  color: '#0f172a',
+                  margin: '0.5rem 0'
+                }}>
+                  Next contact: {formatDate(followUp.scheduledDate)}
                   {followUp.scheduledTime && ` at ${followUp.scheduledTime}`}
                 </p>
               )}
-              {followUp.counselorNotes && (
-                <p className="follow-up-notes">{followUp.counselorNotes}</p>
+              {checkIn && (
+                <div className="follow-up-scores" style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.5rem' }}>
+                  PHQ: {checkIn.phqScore ?? 0} | GAD: {checkIn.gadScore ?? 0}
+                </div>
               )}
               <div className="follow-up-actions">
                 <select
@@ -2954,6 +2981,16 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
                   Edit
                 </button>
               </div>
+              {followUp.counselorNotes && (
+                <details className="follow-up-details">
+                  <summary style={{ fontSize: '0.85rem', color: '#64748b', cursor: 'pointer', marginTop: '0.5rem' }}>
+                    Show notes
+                  </summary>
+                  <p className="follow-up-notes" style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', fontSize: '0.9rem' }}>
+                    {followUp.counselorNotes}
+                  </p>
+                </details>
+              )}
             </div>
           )
         })}
