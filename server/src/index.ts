@@ -11,35 +11,21 @@ const prisma = new PrismaClient();
 
 // CORS configuration
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-// Allow multiple origins (for dev + production)
-const allowedOrigins = frontendUrl.split(',').map(url => url.trim());
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, etc.)
-      if (!origin) return callback(null, true);
-      
-      // Check if origin is in allowed list
-      if (allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed))) {
-        return callback(null, true);
-      }
-      
-      // Log blocked origins for debugging
-      console.warn(`CORS blocked origin: ${origin}. Allowed: ${allowedOrigins.join(', ')}`);
-      callback(new Error('Not allowed by CORS'));
-    },
+    origin: frontendUrl,
     credentials: true,
   })
 );
-console.log(`🌐 CORS configured for origins: ${allowedOrigins.join(', ')}`);
 app.use(express.json());
 
 // ---- Auth types ----
 
 interface AuthUser {
   sub: string;
-  role: "STUDENT" | "COUNSELLOR" | "ADMIN";
+  role: "STUDENT" | "COUNSELLOR" | "PARENT" | "ADMIN";
   schoolId: string;
+  userId: string; // User ID from database
 }
 
 declare global {
@@ -50,46 +36,65 @@ declare global {
   }
 }
 
-// ---- Auth middleware (DEV-FRIENDLY) ----
-// In dev, if token is missing/invalid, we fall back to a dummy user.
-// For production, you would tighten this and verify real JWTs.
-const DEV_USER: AuthUser = {
-  sub: "dev-counsellor-1",
-  role: "COUNSELLOR",
-  schoolId: "school-dev-1",
-};
-
+// ---- Auth middleware ----
+// Verifies JWT tokens and attaches user to request
 const authMiddleware = (
   req: express.Request,
-  _res: express.Response,
+  res: express.Response,
   next: express.NextFunction
 ) => {
   const header = req.headers.authorization;
 
   if (!header || !header.startsWith("Bearer ")) {
-    console.warn("Auth: missing token, using dev fallback user");
-    req.user = DEV_USER;
-    return next();
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
   }
 
   const token = header.slice(7);
 
   try {
-    const decoded = jwt.decode(token) as AuthUser | null;
+    const jwtSecret = process.env.JWT_SECRET || "dev-secret-change-in-production";
+    const decoded = jwt.verify(token, jwtSecret) as any;
 
-    if (!decoded || !decoded.sub || !decoded.role || !decoded.schoolId) {
-      console.warn("Auth: invalid token structure, using dev fallback user");
-      req.user = DEV_USER;
+    if (
+      decoded &&
+      typeof decoded === "object" &&
+      typeof decoded.sub === "string" &&
+      typeof decoded.role === "string" &&
+      typeof decoded.schoolId === "string" &&
+      typeof decoded.userId === "string"
+    ) {
+      req.user = {
+        sub: decoded.sub,
+        role: decoded.role as AuthUser["role"],
+        schoolId: decoded.schoolId,
+        userId: decoded.userId,
+      };
       return next();
+    } else {
+      return res.status(401).json({ error: "Invalid token structure" });
+    }
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
+};
+
+// ---- Role-based middleware ----
+const requireRole = (...allowedRoles: AuthUser["role"][]) => {
+  return (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
-    req.user = decoded;
-    return next();
-  } catch (err) {
-    console.warn("Auth: error decoding token, using dev fallback user", err);
-    req.user = DEV_USER;
-    return next();
-  }
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: "Forbidden: Insufficient permissions" });
+    }
+
+    next();
+  };
 };
 
 // ---- Risk calculation logic ----
@@ -193,178 +198,104 @@ function calculateSafetyRisk(phqScore: number, gadScore: number): string {
   return "low";
 }
 
-// Flag Engine: Detect early warning patterns
-async function checkForFlags(studentId: string, checkIn: any) {
-  try {
-    // Get last 3 check-ins for pattern detection
-    const recentCheckIns = await prisma.checkIn.findMany({
-      where: { studentId },
-      orderBy: { createdAt: 'desc' },
-      take: 3,
-    });
-
-    // Rule 1: 3 days in a row with mood ≤ 2 + sleep ≤ 2
-    if (recentCheckIns.length >= 3) {
-      const allLow = recentCheckIns.every(
-        (c) => c.mood <= 2 && c.sleepQuality <= 2
-      );
-      if (allLow) {
-        const existing = await prisma.flag.findUnique({
-          where: {
-            studentId_type: {
-              studentId,
-              type: 'SUSTAINED_LOW_MOOD_SLEEP',
-            },
-          },
-        });
-        if (existing) {
-          await prisma.flag.update({
-            where: { id: existing.id },
-            data: { createdAt: new Date() },
-          });
-        } else {
-          await prisma.flag.create({
-            data: {
-              studentId,
-              type: 'SUSTAINED_LOW_MOOD_SLEEP',
-              severity: 'moderate',
-            },
-          });
-        }
-        console.log(`🚩 Flag created: SUSTAINED_LOW_MOOD_SLEEP for student ${studentId}`);
-      }
-    }
-
-    // Rule 2: Rapid decline (2+ point drop in mood, energy, or sleep)
-    if (recentCheckIns.length >= 2) {
-      const latest = recentCheckIns[0];
-      const previous = recentCheckIns[1];
-      
-      const moodDrop = previous.mood - latest.mood >= 2;
-      const energyDrop = previous.energy - latest.energy >= 2;
-      const sleepDrop = previous.sleepQuality - latest.sleepQuality >= 2;
-      
-      if (moodDrop || energyDrop || sleepDrop) {
-        const existing = await prisma.flag.findUnique({
-          where: {
-            studentId_type: {
-              studentId,
-              type: 'RAPID_DECLINE',
-            },
-          },
-        });
-        if (existing) {
-          await prisma.flag.update({
-            where: { id: existing.id },
-            data: { createdAt: new Date() },
-          });
-        } else {
-          await prisma.flag.create({
-            data: {
-              studentId,
-              type: 'RAPID_DECLINE',
-              severity: 'moderate',
-            },
-          });
-        }
-        console.log(`🚩 Flag created: RAPID_DECLINE for student ${studentId}`);
-      }
-    }
-
-    // Rule 3: High worries (worries ≥ 4)
-    if (checkIn.worries >= 4) {
-      const existing = await prisma.flag.findUnique({
-        where: {
-          studentId_type: {
-            studentId,
-            type: 'HIGH_WORRIES',
-          },
-        },
-      });
-      if (existing) {
-        await prisma.flag.update({
-          where: { id: existing.id },
-          data: { createdAt: new Date() },
-        });
-      } else {
-        await prisma.flag.create({
-          data: {
-            studentId,
-            type: 'HIGH_WORRIES',
-            severity: 'low',
-          },
-        });
-      }
-    }
-
-    // Rule 4: High burden (burden ≥ 4)
-    if (checkIn.burden >= 4) {
-      const existing = await prisma.flag.findUnique({
-        where: {
-          studentId_type: {
-            studentId,
-            type: 'HIGH_BURDEN',
-          },
-        },
-      });
-      if (existing) {
-        await prisma.flag.update({
-          where: { id: existing.id },
-          data: { createdAt: new Date() },
-        });
-      } else {
-        await prisma.flag.create({
-          data: {
-            studentId,
-            type: 'HIGH_BURDEN',
-            severity: 'moderate',
-          },
-        });
-      }
-    }
-
-    // Rule 5: Crisis indicator (PHQ ≥ 15 or GAD ≥ 15 or safetyRisk === 'high')
-    if (
-      checkIn.phqScore >= 15 ||
-      checkIn.gadScore >= 15 ||
-      checkIn.safetyRisk === 'high' ||
-      checkIn.safetyRisk === 'immediate'
-    ) {
-      const existing = await prisma.flag.findUnique({
-        where: {
-          studentId_type: {
-            studentId,
-            type: 'CRISIS_INDICATOR',
-          },
-        },
-      });
-      if (existing) {
-        await prisma.flag.update({
-          where: { id: existing.id },
-          data: { createdAt: new Date() },
-        });
-      } else {
-        await prisma.flag.create({
-          data: {
-            studentId,
-            type: 'CRISIS_INDICATOR',
-            severity: 'high',
-          },
-        });
-      }
-      console.log(`🚨 CRISIS FLAG: CRISIS_INDICATOR for student ${studentId}`);
-    }
-  } catch (error) {
-    console.error('Error checking for flags:', error);
-    // Don't throw - flag checking shouldn't break check-in creation
-  }
-}
-
 // ---- Routes ----
 
 // Health check
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Login endpoint
+app.post("/api/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password required" });
+    }
+
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { school: true },
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // For demo: simple password check (in production, use bcrypt)
+    // For now, we'll allow any password if user exists (dev mode)
+    // In production: const isValid = await bcrypt.compare(password, user.password);
+    if (user.password && user.password !== password) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // Generate JWT token
+    const jwtSecret = process.env.JWT_SECRET || "dev-secret-change-in-production";
+    const token = jwt.sign(
+      {
+        sub: user.id,
+        userId: user.id,
+        role: user.role,
+        schoolId: user.schoolId,
+        email: user.email,
+      },
+      jwtSecret,
+      { expiresIn: "7d" }
+    );
+
+    // Return user info (without password) and token
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        schoolId: user.schoolId,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get current user info
+app.get("/api/me", authMiddleware, async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      include: { school: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        schoolId: true,
+        school: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // Student creates check-in
@@ -500,11 +431,6 @@ app.post(
         },
       });
 
-      // Check for flags (non-blocking - runs in background)
-      checkForFlags(studentId, checkIn).catch((err) => {
-        console.error('Flag checking error (non-fatal):', err);
-      });
-
       return res.status(201).json(checkIn);
     } catch (error) {
       console.error("Error creating check-in:", error);
@@ -514,11 +440,8 @@ app.post(
 );
 
 // Counsellor dashboard overview
-app.get("/api/dashboard/overview", authMiddleware, async (req, res) => {
+app.get("/api/dashboard/overview", authMiddleware, requireRole("COUNSELLOR", "ADMIN"), async (req, res) => {
   try {
-    if (!req.user || req.user.role !== "COUNSELLOR") {
-      return res.status(403).json({ error: "Forbidden" });
-    }
 
     const schoolId = req.user.schoolId;
 
@@ -587,9 +510,13 @@ app.get(
         return res.status(403).json({ error: "Forbidden" });
       }
 
+      // Students can only view their own check-ins
       if (req.user.role === "STUDENT" && studentId !== req.user.sub) {
-        return res.status(403).json({ error: "Forbidden" });
+        return res.status(403).json({ error: "Forbidden: Students can only view their own check-ins" });
       }
+
+      // Parents can only view their child's check-ins (would need parent-student relationship in schema)
+      // For now, parents can view any student in their school (you can tighten this later)
 
       const checkIns = await prisma.checkIn.findMany({
         where: { studentId },
@@ -614,209 +541,14 @@ app.get(
   }
 );
 
-// List recent flags for counsellor / admin
-// Follow-up endpoints
-// Get all follow-ups for a student
-app.get(
-  "/api/students/:studentId/follow-ups",
-  authMiddleware,
-  async (req, res) => {
-    try {
-      const { studentId } = req.params;
-
-      if (!req.user || (req.user.role !== "COUNSELLOR" && req.user.role !== "ADMIN")) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
-
-      const followUps = await prisma.followUp.findMany({
-        where: { studentId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      });
-
-      // Convert status from UPPERCASE to lowercase for frontend
-      const formatted = followUps.map((f) => ({
-        ...f,
-        status: f.status.toLowerCase() as any,
-        createdAt: f.createdAt.toISOString(),
-        updatedAt: f.updatedAt.toISOString(),
-        scheduledAt: f.scheduledAt?.toISOString() || null,
-      }));
-
-      res.json(formatted);
-    } catch (err) {
-      console.error("Error fetching follow-ups:", err);
-      res.status(500).json({ error: "Failed to fetch follow-ups" });
-    }
-  }
-);
-
-// Create a follow-up
-app.post(
-  "/api/students/:studentId/follow-ups",
-  authMiddleware,
-  async (req, res) => {
-    try {
-      const { studentId } = req.params;
-      const { status, scheduledAt, notes, actionTaken, checkInId } = req.body;
-
-      if (!req.user || (req.user.role !== "COUNSELLOR" && req.user.role !== "ADMIN")) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
-
-      // Get or create user record for the counselor
-      let user = await prisma.user.findFirst({
-        where: { authSub: req.user.sub },
-      });
-
-      if (!user) {
-        // Create a user record if it doesn't exist (for dev/testing)
-        user = await prisma.user.create({
-          data: {
-            authSub: req.user.sub,
-            schoolId: req.user.schoolId,
-            role: req.user.role === "COUNSELLOR" ? "COUNSELLOR" : "ADMIN",
-            name: req.user.sub,
-            email: `${req.user.sub}@example.com`,
-          },
-        });
-      }
-
-      // Convert status from lowercase to UPPERCASE for database
-      const dbStatus = status?.toUpperCase().replace("-", "_") || "PENDING";
-
-      const followUp = await prisma.followUp.create({
-        data: {
-          studentId,
-          createdById: user.id,
-          checkInId: checkInId || null,
-          status: dbStatus as any,
-          scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-          notes: notes || null,
-          actionTaken: actionTaken || null,
-        },
-        include: {
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      });
-
-      // Convert back to lowercase for frontend
-      res.status(201).json({
-        ...followUp,
-        status: followUp.status.toLowerCase() as any,
-        createdAt: followUp.createdAt.toISOString(),
-        updatedAt: followUp.updatedAt.toISOString(),
-        scheduledAt: followUp.scheduledAt?.toISOString() || null,
-      });
-    } catch (err) {
-      console.error("Error creating follow-up:", err);
-      res.status(500).json({ error: "Failed to create follow-up" });
-    }
-  }
-);
-
-// Update a follow-up
-app.put("/api/follow-ups/:id", authMiddleware, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, scheduledAt, notes, actionTaken } = req.body;
-
-    if (!req.user || (req.user.role !== "COUNSELLOR" && req.user.role !== "ADMIN")) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    // Convert status from lowercase to UPPERCASE for database
-    const dbStatus = status ? status.toUpperCase().replace("-", "_") : undefined;
-
-    const followUp = await prisma.followUp.update({
-      where: { id },
-      data: {
-        ...(dbStatus && { status: dbStatus as any }),
-        ...(scheduledAt !== undefined && {
-          scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-        }),
-        ...(notes !== undefined && { notes: notes || null }),
-        ...(actionTaken !== undefined && { actionTaken: actionTaken || null }),
-      },
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    // Convert back to lowercase for frontend
-    res.json({
-      ...followUp,
-      status: followUp.status.toLowerCase() as any,
-      createdAt: followUp.createdAt.toISOString(),
-      updatedAt: followUp.updatedAt.toISOString(),
-      scheduledAt: followUp.scheduledAt?.toISOString() || null,
-    });
-  } catch (err: any) {
-    console.error("Error updating follow-up:", err);
-    if (err.code === "P2025") {
-      return res.status(404).json({ error: "Follow-up not found" });
-    }
-    res.status(500).json({ error: "Failed to update follow-up" });
-  }
-});
-
-app.get("/api/dashboard/flags", authMiddleware, async (req, res) => {
-  try {
-    if (!req.user || (req.user.role !== "COUNSELLOR" && req.user.role !== "ADMIN")) {
-      return res.status(403).json({ error: "Forbidden" });
-    }
-
-    const schoolId = req.user.schoolId;
-
-    const flags = await prisma.flag.findMany({
-      where: {
-        student: { schoolId },
-      },
-      include: {
-        student: {
-          select: { id: true, displayName: true, grade: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    });
-
-    return res.json(flags);
-  } catch (error) {
-    console.error("Error fetching flags:", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
-
 const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => {
   console.log(`🚀 API server running on port ${PORT}`);
-  console.log(`📊 Frontend URL(s): ${allowedOrigins.join(', ')}`);
+  console.log(`📊 Frontend URL: ${frontendUrl}`);
   console.log(
     `💾 Database: ${process.env.DATABASE_URL ? "Connected" : "Not configured"}`
   );
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
 });
 
 // Graceful shutdown

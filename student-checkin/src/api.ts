@@ -2,42 +2,50 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-// Get auth token from localStorage (in production, get from Auth0/Clerk)
+interface ApiError {
+  error: string;
+}
+
+// Get auth token from localStorage
 function getAuthToken(): string | null {
-  // For development: you can store a mock token
-  // In production, get from your auth provider
   return localStorage.getItem('auth_token');
 }
 
-// API request wrapper
-async function apiRequest<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const url = `${API_BASE_URL}${path}`;  // <- no window.location.origin here
-  
+// Create headers with auth token
+function getHeaders(): HeadersInit {
   const token = getAuthToken();
-  const headers: Record<string, string> = {
+  const headers: HeadersInit = {
     'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string> || {}),
   };
   
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
   
-  const res = await fetch(url, {
+  return headers;
+}
+
+// API request wrapper
+async function apiRequest<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  
+  const response = await fetch(url, {
     ...options,
-    headers,
+    headers: {
+      ...getHeaders(),
+      ...options.headers,
+    },
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    console.error('API error', res.status, url, text);
-    throw new Error(text || `API error ${res.status}`);
+  if (!response.ok) {
+    const error: ApiError = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || `HTTP ${response.status}`);
   }
 
-  return res.json();
+  return response.json();
 }
 
 // Student API
@@ -66,61 +74,11 @@ export const studentApi = {
   },
 };
 
-// Follow-up types
-export type FollowUpStatus = 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'no_action_needed';
-
-export interface FollowUpInput {
-  status: FollowUpStatus;
-  scheduledAt?: string | null;  // ISO string, or undefined
-  notes?: string;
-  actionTaken?: string;
-  checkInId?: string;
-}
-
-export interface FollowUp extends FollowUpInput {
-  id: string;
-  studentId: string;
-  createdById: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 // Counsellor API
 export const counsellorApi = {
   // Get dashboard overview
   getDashboard: async () => {
     return apiRequest('/api/dashboard/overview');
-  },
-
-  // Get flags
-  async getFlags() {
-    const token = createMockToken('counsellor-1', 'COUNSELLOR', 'school-dev-1');
-    setMockToken(token);
-    
-    return apiRequest('/api/dashboard/flags', {
-      method: 'GET',
-    });
-  },
-
-  // Get all follow-ups for a student
-  getFollowUps: async (studentId: string): Promise<FollowUp[]> => {
-    return apiRequest(`/api/students/${studentId}/follow-ups`);
-  },
-
-  // Create a follow-up
-  createFollowUp: async (studentId: string, input: FollowUpInput): Promise<FollowUp> => {
-    return apiRequest(`/api/students/${studentId}/follow-ups`, {
-      method: 'POST',
-      body: JSON.stringify(input),
-    });
-  },
-
-  // Update a follow-up
-  updateFollowUp: async (id: string, input: FollowUpInput): Promise<FollowUp> => {
-    return apiRequest(`/api/follow-ups/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(input),
-    });
   },
 };
 

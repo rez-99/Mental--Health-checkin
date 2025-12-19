@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { studentApi, counsellorApi, createMockToken, setMockToken } from './api'
+import { studentApi, createMockToken, setMockToken } from './api'
+import { useAuth, ProtectedRoute } from './auth'
+import { LoginPage } from './LoginPage'
 
 type CheckInEntry = {
   id: string
@@ -30,76 +32,6 @@ type CheckInEntry = {
   crisisAlertTriggered?: boolean
 }
 
-type RiskTheme = 'anxiety' | 'sadness' | 'sleep' | 'anger'
-
-interface SkillPathRecommendation {
-  id: string
-  title: string
-  theme: RiskTheme
-  shortDescription: string
-}
-
-const SKILL_PATHS: SkillPathRecommendation[] = [
-  {
-    id: 'anxiety-path',
-    theme: 'anxiety',
-    title: 'Calm My Body & Thoughts',
-    shortDescription: 'Quick breathing, grounding, and realistic-thinking tools when worry is high.',
-  },
-  {
-    id: 'sadness-path',
-    theme: 'sadness',
-    title: 'Lift My Mood Gently',
-    shortDescription: 'Tiny actions, self-compassion, and activity-scheduling when mood is low.',
-  },
-  {
-    id: 'sleep-path',
-    theme: 'sleep',
-    title: 'Sleep Reset',
-    shortDescription: 'Wind-down routine, screen limits, and breathing for better sleep.',
-  },
-  {
-    id: 'anger-path',
-    theme: 'anger',
-    title: 'Cool Down & Respond',
-    shortDescription: 'Body-calm + "pause & plan" tools for anger and frustration.',
-  },
-]
-
-// Suggested actions for each flag type shown on the counsellor dashboard
-const FLAG_SUGGESTED_ACTIONS: Record<string, string[]> = {
-  CRISIS_INDICATOR: [
-    'Follow your school\'s crisis/safety protocol immediately.',
-    'Notify the designated safeguarding lead or administrator.',
-    'Consider contacting parents/guardians according to school policy.',
-  ],
-  HIGH_BURDEN: [
-    'Invite the student for a brief one-to-one check-in.',
-    'Offer a short skills path (e.g., "Low Mood Reset" or similar).',
-    'Check whether academic or family stress is piling up.',
-  ],
-  HIGH_WORRIES: [
-    'Ask about specific worries (school, friends, home, online).',
-    'Offer an anxiety skills path (e.g., "Calm Worries").',
-    'Teach or review a simple grounding / breathing skill.',
-  ],
-  SUSTAINED_LOW_MOOD_SLEEP: [
-    'Check in about sleep patterns.',
-    'Consider "Sleep Reset" or "Low Mood Reset" program.',
-    'Review recent check-ins for context.',
-  ],
-  RAPID_DECLINE: [
-    'Review recent check-ins and any major changes reported.',
-    'Schedule a follow up within a week to see if things stabilise.',
-    'Consider consulting with a senior mental-health lead if decline continues.',
-  ],
-  ENGAGEMENT_DROP: [
-    'Check in about barriers to using the app (busy, forgetful, worried).',
-    'Re-explain that check-ins are for support, not punishment.',
-    'Offer to complete the next check-in together in person.',
-  ],
-}
-
 type FollowUpStatus = 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'no_action_needed'
 
 type FollowUpRecord = {
@@ -108,8 +40,7 @@ type FollowUpRecord = {
   checkInId: string
   flaggedDate: string
   status: FollowUpStatus
-  scheduledAt?: string // ISO datetime string, e.g. "2026-01-07T15:30:00.000Z"
-  scheduledDate?: string // Legacy field for backward compatibility
+  scheduledDate?: string
   counselorNotes?: string
   actionTaken?: string
   createdAt: string
@@ -277,9 +208,6 @@ const THREAT_DETECTION_KEY = 'threat-detection'
 const GROUP_SESSIONS_KEY = 'group-sessions'
 const GROUP_SESSION_PARTICIPATION_KEY = 'group-session-participation'
 const COPING_SKILL_EVENTS_KEY = 'coping-skill-events'
-const SKILL_SESSIONS_KEY = 'skill-sessions'
-// const SAFETY_PLAN_KEY = 'safety-plan' // Reserved for future safety plan feature
-// const NOTIFICATION_PREFS_KEY = 'notification-preferences' // Reserved for future notification preferences feature
 
 type EngagementData = {
   currentStreak: number
@@ -372,72 +300,6 @@ type CulturalResource = {
   website?: string
   available24h: boolean
 }
-
-// Skills Paths System
-type SkillPathModule = {
-  id: string
-  type: 'psychoeducation' | 'breathing' | 'thought-challenging' | 'action-plan'
-  title: string
-  content: string[]
-  duration: string
-}
-
-type SkillPath = {
-  id: string
-  name: string
-  description: string
-  icon: string
-  modules: SkillPathModule[]
-  recommendedFor?: {
-    mood?: number // ≤ this value
-    worries?: number // ≥ this value
-    sleepQuality?: number // ≤ this value
-    energy?: number // ≤ this value
-    concentration?: number // ≤ this value
-    burden?: number // ≥ this value
-  }
-}
-
-type SkillSession = {
-  id: string
-  studentId: string
-  pathId: string
-  pathName: string
-  preMood: number | null
-  postMood: number | null
-  completedAt: string
-  createdAt: string
-}
-
-// Safety Plan (reserved for future implementation)
-// type SafetyPlan = {
-//   id: string
-//   studentId: string
-//   warningSigns: string[]
-//   copingStrategies: string[]
-//   reasonsToStaySafe: string[]
-//   peopleWhoCanHelp: Array<{
-//     name: string
-//     contact: string
-//     relationship: string
-//   }>
-//   crisisResources?: {
-//     textLine?: string
-//     phoneLine?: string
-//     localEmergency?: string
-//   }
-//   createdAt: string
-//   updatedAt: string
-// }
-
-// Notification Preferences (reserved for future implementation)
-// type NotificationPreferences = {
-//   studentId: string
-//   lowMoodReminder: boolean
-//   notifyTrustedAdult: boolean
-//   notifyCounsellor: boolean
-//   trustedAdultEmail?: string
-// }
 
 const initialStudents: StudentRecord[] = [
   {
@@ -548,7 +410,7 @@ const sliderConfig = [
   { key: 'burden', label: 'Did you feel like a burden?', icon: '🤝', emoji: ['💚', '👍', '😐', '😔', '😞'], minLabel: 'Supported', maxLabel: 'Often' },
 ] as const
 
-// riskPalette - currently unused (was used by RiskBadge component)
+// riskPalette kept for future use with RiskBadge component
 // const riskPalette = {
 //   low: { label: 'Green', hue: 'linear-gradient(135deg, #1fbf75, #42d4a1)' },
 //   medium: { label: 'Yellow', hue: 'linear-gradient(135deg, #f5a623, #ffd25a)' },
@@ -557,50 +419,6 @@ const sliderConfig = [
 
 const formatDate = (iso: string) =>
   new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(iso))
-
-const formatDateTime = (iso: string) => {
-  const d = new Date(iso)
-  return d.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  })
-}
-
-// Helper to get scheduledAt from a follow-up (handles backward compatibility)
-const getScheduledAt = (followUp: FollowUpRecord): string | undefined => {
-  if (followUp.scheduledAt) return followUp.scheduledAt
-  // Backward compatibility: if only scheduledDate exists, convert to scheduledAt with default time
-  if (followUp.scheduledDate) {
-    // Default to 3:30 PM (15:30) local time
-    const date = new Date(followUp.scheduledDate)
-    date.setHours(15, 30, 0, 0)
-    return date.toISOString()
-  }
-  return undefined
-}
-
-// Convert ISO datetime to datetime-local format (YYYY-MM-DDTHH:mm)
-const isoToDateTimeLocal = (iso: string | undefined): string => {
-  if (!iso) return ''
-  const d = new Date(iso)
-  // Convert to local time and format as YYYY-MM-DDTHH:mm
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  const hours = String(d.getHours()).padStart(2, '0')
-  const minutes = String(d.getMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day}T${hours}:${minutes}`
-}
-
-// Convert datetime-local format to ISO string
-const dateTimeLocalToIso = (dateTimeLocal: string): string | undefined => {
-  if (!dateTimeLocal) return undefined
-  const d = new Date(dateTimeLocal)
-  return d.toISOString()
-}
 
 const calculateRiskScore = (entry: CheckInEntry | undefined) => {
   if (!entry) return 0
@@ -712,73 +530,6 @@ const translations = {
     counselorDashboard: 'Counselor dashboard',
     weeklyCheckIn: 'Weekly well-being check-in',
     checkInDesc: 'A quick check-in to help your school notice patterns and offer support. You\'re not weird for feeling this way—lots of students feel similar things. This can\'t replace a counselor, but it helps adults reach out sooner.',
-    heroTitleStudent: 'A quick check-in that can turn into real support.',
-    heroSubtitleStudent: 'Answer a few questions about how you\'ve been feeling. Your school uses this to notice who might need extra support.',
-    takesMinutes: 'Takes about 2–3 minutes',
-    answersPrivate: 'Your answers aren\'t shared with classmates',
-    notATest: 'Not a test – just a check-in',
-    startCheckIn: 'Start my check-in',
-    howItWorks: 'How this works / Privacy',
-    parentPortal: 'Parent/Caregiver Portal',
-    thanksForCheckingIn: 'Thanks for checking in',
-    weekStreak: 'You\'re on a {count} week streak! 🔥',
-    gladYoureHere: 'We\'re glad you\'re here today, even on a hard week. 💛',
-    adultsSeeTrends: 'Adults see trends to offer support—never diagnoses. Your check-in from {date} is on file.',
-    trySkillPractice: 'Try a quick skill practice →',
-    gotIt: 'Got it',
-    tryQuickSkill: '💡 Try a quick skill practice?',
-    // Question labels
-    questionMood: 'How was your overall mood this week?',
-    questionMoodShort: 'Overall mood this week?',
-    questionMoodAlt: 'How did you feel most of this week?',
-    questionSleep: 'Sleep quality?',
-    questionSleepAlt: 'How rested did you feel?',
-    questionConcentration: 'Concentration?',
-    questionConcentrationAlt: 'How sharp was your focus?',
-    questionEnergy: 'Energy levels?',
-    questionWorries: 'How heavy did worries feel?',
-    questionBurden: 'Did you feel like a burden?',
-    // Question labels (min/max)
-    moodMin: 'Very low',
-    moodMax: 'Very positive',
-    sleepMin: 'Restless',
-    sleepMax: 'Rested',
-    concentrationMin: 'Scattered',
-    concentrationMax: 'Sharp',
-    energyMin: 'Drained',
-    energyMax: 'Energized',
-    worriesMin: 'Light',
-    worriesMax: 'Heavy',
-    burdenMin: 'Supported',
-    burdenMax: 'Often',
-    // Other UI text
-    schoolWideCheckIn: 'School-wide well-being check-in',
-    forAllStudents: 'This check-in is for all students',
-    universalScreening: 'Universal screening helps us find and support students who need help, even when it\'s not obvious.',
-    runsBeautifully: 'Runs beautifully on:',
-    universalScreeningNote: 'Universal screening for all students. Evidence-based measures (PHQ-A, GAD-7) in youth-friendly language.',
-    universalScreeningResults: 'Universal screening results. Validated measures (PHQ-A, GAD-7) help identify students who need support.',
-    // Engagement messages
-    forEveryStudent: 'For every student, every week.',
-    goodDaysMatter: 'Good days and tough days both matter.',
-    youveDealtWithAlot: 'You\'ve probably already dealt with a lot on your own. This is a small way of not carrying it all by yourself.',
-    weekStreakLabel: 'week streak',
-    checkInsLabel: 'check-ins',
-    // Form labels
-    preferredName: '✨ Preferred name (optional)',
-    stayAnonymous: 'You can stay anonymous',
-    // Inspiration quote
-    rumiQuote: '"You are not a drop in the ocean. You are the entire ocean in a drop."',
-    rumiAuthor: '– Rumi',
-    youMatterMessage: 'You matter more than you know, and your feelings matter too. 🌊💛',
-    // Step labels
-    stepMoodBasics: 'Mood & basics',
-    stepEnergyWorries: 'Energy & worries',
-    stepWrapUp: 'Wrap-up',
-    stepSafetyCheck: 'Safety check',
-    continueToSafety: 'Continue to safety check',
-    // Buttons
-    calmRoom: '🌿 Calm Room',
   },
   es: {
     heroTitle: 'Momentos de registro que se convierten en apoyo oportuno.',
@@ -787,73 +538,6 @@ const translations = {
     counselorDashboard: 'Panel de consejeros',
     weeklyCheckIn: 'Registro semanal de bienestar',
     checkInDesc: 'Reflexión de 2 minutos. Esto ayuda a tu escuela a apoyar mejor a los estudiantes—no es un diagnóstico, solo un registro de apoyo.',
-    heroTitleStudent: 'Un registro rápido que puede convertirse en apoyo real.',
-    heroSubtitleStudent: 'Responde algunas preguntas sobre cómo te has sentido. Tu escuela usa esto para notar quién podría necesitar apoyo adicional.',
-    takesMinutes: 'Toma aproximadamente 2–3 minutos',
-    answersPrivate: 'Tus respuestas no se comparten con tus compañeros',
-    notATest: 'No es un examen, solo un registro',
-    startCheckIn: 'Comenzar mi registro',
-    howItWorks: 'Cómo funciona / Privacidad',
-    parentPortal: 'Portal para padres/cuidadores',
-    thanksForCheckingIn: 'Gracias por registrarte',
-    weekStreak: '¡Llevas {count} semanas seguidas! 🔥',
-    gladYoureHere: 'Nos alegra que estés aquí hoy, incluso en una semana difícil. 💛',
-    adultsSeeTrends: 'Los adultos ven tendencias para ofrecer apoyo—nunca diagnósticos. Tu registro del {date} está archivado.',
-    trySkillPractice: 'Prueba una práctica rápida de habilidades →',
-    gotIt: 'Entendido',
-    tryQuickSkill: '💡 ¿Pruebas una práctica rápida de habilidades?',
-    // Question labels
-    questionMood: '¿Cómo estuvo tu estado de ánimo general esta semana?',
-    questionMoodShort: '¿Estado de ánimo general esta semana?',
-    questionMoodAlt: '¿Cómo te sentiste la mayor parte de esta semana?',
-    questionSleep: '¿Calidad del sueño?',
-    questionSleepAlt: '¿Qué tan descansado te sentiste?',
-    questionConcentration: '¿Concentración?',
-    questionConcentrationAlt: '¿Qué tan aguda estuvo tu concentración?',
-    questionEnergy: '¿Niveles de energía?',
-    questionWorries: '¿Qué tan pesadas se sintieron las preocupaciones?',
-    questionBurden: '¿Te sentiste como una carga?',
-    // Question labels (min/max)
-    moodMin: 'Muy bajo',
-    moodMax: 'Muy positivo',
-    sleepMin: 'Inquieto',
-    sleepMax: 'Descansado',
-    concentrationMin: 'Disperso',
-    concentrationMax: 'Agudo',
-    energyMin: 'Agotado',
-    energyMax: 'Energizado',
-    worriesMin: 'Ligero',
-    worriesMax: 'Pesado',
-    burdenMin: 'Apoyado',
-    burdenMax: 'A menudo',
-    // Other UI text
-    schoolWideCheckIn: 'Registro de bienestar para toda la escuela',
-    forAllStudents: 'Este registro es para todos los estudiantes',
-    universalScreening: 'El registro universal nos ayuda a encontrar y apoyar a los estudiantes que necesitan ayuda, incluso cuando no es obvio.',
-    runsBeautifully: 'Funciona perfectamente en:',
-    universalScreeningNote: 'Registro universal para todos los estudiantes. Medidas basadas en evidencia (PHQ-A, GAD-7) en lenguaje amigable para jóvenes.',
-    universalScreeningResults: 'Resultados del registro universal. Medidas validadas (PHQ-A, GAD-7) ayudan a identificar estudiantes que necesitan apoyo.',
-    // Engagement messages
-    forEveryStudent: 'Para cada estudiante, cada semana.',
-    goodDaysMatter: 'Los días buenos y los días difíciles importan.',
-    youveDealtWithAlot: 'Probablemente ya has lidiado con mucho por tu cuenta. Esta es una pequeña forma de no cargar con todo solo.',
-    weekStreakLabel: 'semanas seguidas',
-    checkInsLabel: 'registros',
-    // Form labels
-    preferredName: '✨ Nombre preferido (opcional)',
-    stayAnonymous: 'Puedes permanecer anónimo',
-    // Inspiration quote
-    rumiQuote: '"No eres una gota en el océano. Eres todo el océano en una gota."',
-    rumiAuthor: '– Rumi',
-    youMatterMessage: 'Importas más de lo que sabes, y tus sentimientos también importan. 🌊💛',
-    // Step labels
-    stepMoodBasics: 'Estado de ánimo y básicos',
-    stepEnergyWorries: 'Energía y preocupaciones',
-    stepWrapUp: 'Resumen',
-    stepSafetyCheck: 'Verificación de seguridad',
-    continueToSafety: 'Continuar a verificación de seguridad',
-    // Buttons
-    calmRoom: '🌿 Sala de calma',
   },
   fr: {
     heroTitle: 'Des moments de vérification qui se transforment en soutien opportun.',
@@ -862,73 +546,6 @@ const translations = {
     counselorDashboard: 'Tableau de bord conseiller',
     weeklyCheckIn: 'Vérification hebdomadaire du bien-être',
     checkInDesc: 'Réflexion de 2 minutes. Cela aide votre école à mieux soutenir les étudiants—pas un diagnostic, juste une vérification de soutien.',
-    heroTitleStudent: 'Une vérification rapide qui peut se transformer en soutien réel.',
-    heroSubtitleStudent: 'Répondez à quelques questions sur votre état d\'esprit. Votre école utilise cela pour remarquer qui pourrait avoir besoin de soutien supplémentaire.',
-    takesMinutes: 'Prend environ 2–3 minutes',
-    answersPrivate: 'Vos réponses ne sont pas partagées avec vos camarades',
-    notATest: 'Pas un test, juste une vérification',
-    startCheckIn: 'Commencer ma vérification',
-    howItWorks: 'Comment ça fonctionne / Confidentialité',
-    parentPortal: 'Portail parent/tuteur',
-    thanksForCheckingIn: 'Merci de vous être enregistré',
-    weekStreak: 'Vous êtes sur une série de {count} semaines ! 🔥',
-    gladYoureHere: 'Nous sommes heureux que vous soyez ici aujourd\'hui, même lors d\'une semaine difficile. 💛',
-    adultsSeeTrends: 'Les adultes voient les tendances pour offrir du soutien—jamais de diagnostics. Votre vérification du {date} est enregistrée.',
-    trySkillPractice: 'Essayez une pratique rapide de compétences →',
-    gotIt: 'Compris',
-    tryQuickSkill: '💡 Essayez une pratique rapide de compétences ?',
-    // Question labels
-    questionMood: 'Comment était votre humeur générale cette semaine ?',
-    questionMoodShort: 'Humeur générale cette semaine ?',
-    questionMoodAlt: 'Comment vous êtes-vous senti la plupart de cette semaine ?',
-    questionSleep: 'Qualité du sommeil ?',
-    questionSleepAlt: 'À quel point vous êtes-vous senti reposé ?',
-    questionConcentration: 'Concentration ?',
-    questionConcentrationAlt: 'À quel point votre concentration était-elle vive ?',
-    questionEnergy: 'Niveaux d\'énergie ?',
-    questionWorries: 'À quel point les inquiétudes se sont-elles senties lourdes ?',
-    questionBurden: 'Vous êtes-vous senti comme un fardeau ?',
-    // Question labels (min/max)
-    moodMin: 'Très bas',
-    moodMax: 'Très positif',
-    sleepMin: 'Agité',
-    sleepMax: 'Reposé',
-    concentrationMin: 'Dispersé',
-    concentrationMax: 'Vif',
-    energyMin: 'Épuisé',
-    energyMax: 'Énergisé',
-    worriesMin: 'Léger',
-    worriesMax: 'Lourd',
-    burdenMin: 'Soutenu',
-    burdenMax: 'Souvent',
-    // Other UI text
-    schoolWideCheckIn: 'Vérification du bien-être à l\'échelle de l\'école',
-    forAllStudents: 'Cette vérification est pour tous les étudiants',
-    universalScreening: 'Le dépistage universel nous aide à trouver et soutenir les étudiants qui ont besoin d\'aide, même quand ce n\'est pas évident.',
-    runsBeautifully: 'Fonctionne parfaitement sur :',
-    universalScreeningNote: 'Dépistage universel pour tous les étudiants. Mesures fondées sur des preuves (PHQ-A, GAD-7) dans un langage adapté aux jeunes.',
-    universalScreeningResults: 'Résultats du dépistage universel. Mesures validées (PHQ-A, GAD-7) aident à identifier les étudiants qui ont besoin de soutien.',
-    // Engagement messages
-    forEveryStudent: 'Pour chaque étudiant, chaque semaine.',
-    goodDaysMatter: 'Les bons jours et les jours difficiles comptent tous.',
-    youveDealtWithAlot: 'Vous avez probablement déjà géré beaucoup de choses par vous-même. C\'est une petite façon de ne pas tout porter seul.',
-    weekStreakLabel: 'semaines consécutives',
-    checkInsLabel: 'vérifications',
-    // Form labels
-    preferredName: '✨ Nom préféré (optionnel)',
-    stayAnonymous: 'Vous pouvez rester anonyme',
-    // Inspiration quote
-    rumiQuote: '"Vous n\'êtes pas une goutte dans l\'océan. Vous êtes tout l\'océan dans une goutte."',
-    rumiAuthor: '– Rumi',
-    youMatterMessage: 'Vous comptez plus que vous ne le savez, et vos sentiments comptent aussi. 🌊💛',
-    // Step labels
-    stepMoodBasics: 'Humeur et bases',
-    stepEnergyWorries: 'Énergie et inquiétudes',
-    stepWrapUp: 'Récapitulatif',
-    stepSafetyCheck: 'Vérification de sécurité',
-    continueToSafety: 'Continuer vers la vérification de sécurité',
-    // Buttons
-    calmRoom: '🌿 Salle de calme',
   },
 }
 
@@ -985,7 +602,34 @@ const detectDevice = (): DeviceInfo => {
 }
 
 export function App() {
+  const { user, isAuthenticated, isLoading, logout } = useAuth()
   const [activeView, setActiveView] = useState<View>('student')
+  
+  // Show login page if not authenticated
+  if (isLoading) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <p>Loading...</p>
+      </div>
+    )
+  }
+  
+  if (!isAuthenticated) {
+    return <LoginPage />
+  }
+  
+  // Set default view based on user role
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'STUDENT' && activeView !== 'student') {
+        setActiveView('student')
+      } else if (user.role === 'COUNSELLOR' && activeView === 'student') {
+        setActiveView('staff')
+      } else if (user.role === 'PARENT' && activeView === 'student') {
+        setActiveView('parent')
+      }
+    }
+  }, [user])
   const [deviceInfo] = useState<DeviceInfo>(() => {
     const stored = localStorage.getItem(DEVICE_INFO_KEY)
     if (stored) {
@@ -1040,12 +684,6 @@ export function App() {
     return initialStudents
   })
   const [lastSaved, setLastSaved] = useState<CheckInEntry | null>(null)
-  const [recommendedPaths, setRecommendedPaths] = useState<SkillPathRecommendation[] | null>(null)
-  
-  // Flags state for counsellor dashboard
-  const [flags, setFlags] = useState<any[] | null>(null)
-  const [flagsLoading, setFlagsLoading] = useState(false)
-  const [flagsError, setFlagsError] = useState<string | null>(null)
   
   useEffect(() => {
     localStorage.setItem(DEVICE_INFO_KEY, JSON.stringify(deviceInfo))
@@ -1195,29 +833,6 @@ export function App() {
     return threats
   }
 
-  function getRecommendedPathsFromEntry(entry: CheckInEntry): SkillPathRecommendation[] {
-    const picks: SkillPathRecommendation[] = []
-
-    // Example simple rules – you can tune later:
-    if (entry.worries >= 4 || entry.concentration <= 2) {
-      const anxiety = SKILL_PATHS.find(p => p.theme === 'anxiety')
-      if (anxiety) picks.push(anxiety)
-    }
-
-    if (entry.mood <= 2 || entry.burden >= 4) {
-      const sadness = SKILL_PATHS.find(p => p.theme === 'sadness')
-      if (sadness && !picks.includes(sadness)) picks.push(sadness)
-    }
-
-    if (entry.sleepQuality <= 2) {
-      const sleep = SKILL_PATHS.find(p => p.theme === 'sleep')
-      if (sleep && !picks.includes(sleep)) picks.push(sleep)
-    }
-
-    // Cap at 2 so we don't overwhelm the student
-    return picks.slice(0, 2)
-  }
-
   const handleCheckInSubmit = async (entry: Omit<CheckInEntry, 'id' | 'createdAt'>) => {
     const phqScore = calculatePHQScore(entry)
     const gadScore = calculateGADScore(entry)
@@ -1242,7 +857,27 @@ export function App() {
     const mockToken = createMockToken(studentId, 'STUDENT', 'school_1')
     setMockToken(mockToken)
     
-    // Create entry first (so we can show success modal even if API fails)
+    // Submit to API
+    try {
+      const apiResponse = await studentApi.createCheckIn(studentId, {
+        mood: entry.mood,
+        sleepQuality: entry.sleepQuality,
+        concentration: entry.concentration,
+        energy: entry.energy,
+        worries: entry.worries,
+        burden: entry.burden,
+        notes: entry.notes || undefined,
+        cognitiveScore: entry.cognitiveScore,
+        screenUseImpact: entry.screenUseImpact,
+      })
+      
+      console.log('✅ Check-in submitted to API:', apiResponse)
+    } catch (error) {
+      console.error('❌ Failed to submit check-in to API:', error)
+      // Continue with local storage as fallback
+      // In production, you might want to show an error message to the user
+    }
+    
     const newEntry: CheckInEntry = {
       ...entry,
       id: randomId(),
@@ -1405,39 +1040,7 @@ export function App() {
       
       return updated
     })
-    
-    // Set lastSaved BEFORE API call so success modal shows immediately
     setLastSaved(newEntry)
-    setRecommendedPaths(getRecommendedPathsFromEntry(newEntry))
-    
-    // Submit to API (non-blocking - don't wait for it)
-    // This runs in the background so the success modal shows immediately
-    studentApi.createCheckIn(studentId, {
-      mood: entry.mood,
-      sleepQuality: entry.sleepQuality,
-      concentration: entry.concentration,
-      energy: entry.energy,
-      worries: entry.worries,
-      burden: entry.burden,
-      notes: entry.notes || undefined,
-      cognitiveScore: entry.cognitiveScore,
-      screenUseImpact: entry.screenUseImpact,
-    })
-    .then((apiResponse) => {
-      console.log('✅ Check-in submitted to API:', apiResponse)
-      console.log('📊 Check-in saved to database with ID:', (apiResponse as any)?.id)
-    })
-    .catch((error) => {
-      console.error('❌ Failed to submit check-in to API:', error)
-      console.error('🔗 API URL:', import.meta.env.VITE_API_URL || 'http://localhost:4000')
-      console.error('📝 Error details:', {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
-      })
-      // Continue with local storage as fallback
-      // The check-in is already saved to localStorage, so user still sees success
-    })
   }
 
   // Check for stationId or sessionId in URL (QR code flow)
@@ -1449,42 +1052,51 @@ export function App() {
     }
   }, [])
 
-  // Load flags when counsellor view is active
-  useEffect(() => {
-    if (activeView !== 'staff') {
-      setFlags(null)
-      return
-    }
-
-    setFlagsLoading(true)
-    counsellorApi.getFlags()
-      .then((data: any) => {
-        setFlags(data as any[])
-        setFlagsError(null)
-      })
-      .catch((err) => {
-        console.error('Failed to load flags', err)
-        setFlagsError('Could not load flags')
-      })
-      .finally(() => setFlagsLoading(false))
-  }, [activeView])
-
   return (
     <div className="app-shell">
       <header className={`hero ${activeView === 'student' ? 'hero-student' : ''}`}>
+        {/* Logout button */}
+        {user && (
+          <div style={{ 
+            position: 'absolute', 
+            top: '1rem', 
+            right: '1rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem',
+            zIndex: 10
+          }}>
+            <span style={{ fontSize: '0.875rem', color: '#666' }}>
+              {user.name} ({user.role})
+            </span>
+            <button 
+              onClick={logout}
+              style={{
+                padding: '0.5rem 1rem',
+                background: '#f0f0f0',
+                border: '1px solid #ddd',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        )}
         <div className="hero__content">
           {activeView === 'student' ? (
             <>
               <h1>
-                {t.heroTitleStudent}
+                A quick check-in that can turn into real support.
               </h1>
               <p className="lead">
-                {t.heroSubtitleStudent}
+                Answer a few questions about how you've been feeling. Your school uses this to notice who might need extra support.
               </p>
               <ul className="student-bullets">
-                <li>{t.takesMinutes}</li>
-                <li>{t.answersPrivate}</li>
-                <li>{t.notATest}</li>
+                <li>Takes about 2–3 minutes</li>
+                <li>Your answers aren't shared with classmates</li>
+                <li>Not a test – just a check-in</li>
               </ul>
               <div className="cta-group student-cta">
                 <button className="primary large" onClick={() => {
@@ -1492,7 +1104,7 @@ export function App() {
                   const studentSection = document.querySelector('.content')
                   studentSection?.scrollIntoView({ behavior: 'smooth' })
                 }}>
-                  {t.startCheckIn}
+                  Start my check-in
                 </button>
                 <button 
                   className="privacy-link-button" 
@@ -1501,60 +1113,75 @@ export function App() {
                     footer?.scrollIntoView({ behavior: 'smooth' })
                   }}
                 >
-                  {t.howItWorks}
+                  How this works / Privacy
                 </button>
               </div>
-              <div className="cta-group" style={{ marginTop: '1.5rem', justifyContent: 'center' }}>
-                <button className="ghost" onClick={() => setActiveView('staff')}>
-                  {t.counselorDashboard}
-                </button>
-                <button className="ghost" onClick={() => setActiveView('parent')}>
-                  {t.parentPortal}
-                </button>
-              </div>
+              {/* Only show navigation links based on user role */}
+              {user && (user.role === 'COUNSELLOR' || user.role === 'ADMIN') && (
+                <div className="cta-group" style={{ marginTop: '1.5rem', justifyContent: 'center' }}>
+                  <button className="ghost" onClick={() => setActiveView('staff')}>
+                    {t.counselorDashboard}
+                  </button>
+                </div>
+              )}
+              {user && user.role === 'PARENT' && (
+                <div className="cta-group" style={{ marginTop: '1.5rem', justifyContent: 'center' }}>
+                  <button className="ghost" onClick={() => setActiveView('parent')}>
+                    Parent/Caregiver Portal
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <>
               {(activeView === 'staff' || activeView === 'parent') && (
-                <p className="eyebrow">{t.schoolWideCheckIn}</p>
+                <p className="eyebrow">School-wide well-being check-in</p>
               )}
               <h1>
                 {t.heroTitle.split(' ').slice(0, -3).join(' ')}
                 <span> {t.heroTitle.split(' ').slice(-3).join(' ')}</span>
               </h1>
               <p className="lead">
-                {t.heroSubtitle} <strong>{t.forAllStudents}</strong>—not just those who seem to be struggling. 
-                {t.universalScreening}
+                {t.heroSubtitle} <strong>This check-in is for all students</strong>—not just those who seem to be struggling. 
+                Universal screening helps us find and support students who need help, even when it's not obvious.
               </p>
               <div className="cta-group">
-                <button className="ghost" onClick={() => setActiveView('student')}>
-                  {t.studentCheckIn}
-                </button>
-                <button className={activeView === 'staff' ? 'primary' : 'ghost'} onClick={() => setActiveView('staff')}>
-                  {t.counselorDashboard}
-                </button>
-                <button className={activeView === 'parent' ? 'primary' : 'ghost'} onClick={() => setActiveView('parent')}>
-                  Parent/Caregiver Portal
-                </button>
+                {/* Show student check-in for all roles */}
+                {(user?.role === 'STUDENT' || user?.role === 'COUNSELLOR' || user?.role === 'ADMIN') && (
+                  <button className="ghost" onClick={() => setActiveView('student')}>
+                    {t.studentCheckIn}
+                  </button>
+                )}
+                {/* Show counselor dashboard only for counselors and admins */}
+                {(user?.role === 'COUNSELLOR' || user?.role === 'ADMIN') && (
+                  <button className={activeView === 'staff' ? 'primary' : 'ghost'} onClick={() => setActiveView('staff')}>
+                    {t.counselorDashboard}
+                  </button>
+                )}
+                {/* Show parent portal only for parents */}
+                {user?.role === 'PARENT' && (
+                  <button className={activeView === 'parent' ? 'primary' : 'ghost'} onClick={() => setActiveView('parent')}>
+                    Parent/Caregiver Portal
+                  </button>
+                )}
               </div>
             </>
           )}
         </div>
         {activeView !== 'student' && (
           <div className="hero__card">
-            <p>{t.runsBeautifully}</p>
+            <p>Runs beautifully on:</p>
             <ul>
               <li>Any browser (Chrome, Safari, Edge)</li>
               <li>Phones & tablets (Android + iOS)</li>
               <li>School Chromebooks</li>
             </ul>
-            <p className="mini-note">{t.universalScreeningNote} 
+            <p className="mini-note">Universal screening for all students. Evidence-based measures (PHQ-A, GAD-7) in youth-friendly language. 
             Built for long-term engagement with micro-skills that help. Tracks multi-year trajectories to show long-term outcomes.</p>
             <div className="ethics-badge">
               <span>🔒 Privacy-by-design</span>
               <span>📱 Works offline</span>
               <span>🚫 No tracking</span>
-              <span>💚 Non-profit</span>
             </div>
           </div>
         )}
@@ -1578,120 +1205,36 @@ export function App() {
             }}
           />
         ) : activeView === 'student' ? (
-          <StudentCheckIn 
-            onSubmit={handleCheckInSubmit} 
-            lastSaved={lastSaved} 
-            students={students}
-            preferences={preferences}
-            onPreferencesChange={setPreferences}
-            resources={resources}
-            translations={t}
-            onCalmRoomSession={(session) => {
-              setCalmRoomSessions(prev => [...prev, session])
-              // Log as a skill used
-              const engagement = JSON.parse(localStorage.getItem(ENGAGEMENT_KEY) || '{}')
-              if (!engagement.skillsUnlocked) engagement.skillsUnlocked = []
-              if (!engagement.skillsUnlocked.includes('calm_room')) {
-                engagement.skillsUnlocked.push('calm_room')
-                localStorage.setItem(ENGAGEMENT_KEY, JSON.stringify(engagement))
-              }
-            }}
-            deviceInfo={deviceInfo}
-            recommendedPaths={recommendedPaths}
-            onRecommendedPathsChange={setRecommendedPaths}
-          />
+          <ProtectedRoute allowedRoles={['STUDENT', 'COUNSELLOR', 'ADMIN']}>
+            <StudentCheckIn 
+              onSubmit={handleCheckInSubmit} 
+              lastSaved={lastSaved} 
+              students={students}
+              preferences={preferences}
+              onPreferencesChange={setPreferences}
+              resources={resources}
+              translations={t}
+              onCalmRoomSession={(session) => {
+                setCalmRoomSessions(prev => [...prev, session])
+                // Log as a skill used
+                const engagement = JSON.parse(localStorage.getItem(ENGAGEMENT_KEY) || '{}')
+                if (!engagement.skillsUnlocked) engagement.skillsUnlocked = []
+                if (!engagement.skillsUnlocked.includes('calm_room')) {
+                  engagement.skillsUnlocked.push('calm_room')
+                  localStorage.setItem(ENGAGEMENT_KEY, JSON.stringify(engagement))
+                }
+              }}
+              deviceInfo={deviceInfo}
+            />
+          </ProtectedRoute>
         ) : activeView === 'staff' ? (
-          <div>
-            <CounselorDashboard students={students} onStudentsUpdate={setStudents} translations={t} />
-            <div style={{ marginTop: '2rem', padding: '1rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>Recent Risk Flags</h2>
-              {flagsLoading && <p style={{ fontSize: '0.875rem', color: '#64748b' }}>Loading flags…</p>}
-              {flagsError && <p style={{ fontSize: '0.875rem', color: '#ef4444' }}>{flagsError}</p>}
-              {flags && flags.length === 0 && !flagsLoading && (
-                <p style={{ fontSize: '0.875rem', color: '#64748b' }}>No flags yet.</p>
-              )}
-              {flags && flags.length > 0 && (
-                <div style={{ overflowX: 'auto', borderRadius: '0.75rem', border: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-                  <table style={{ minWidth: '100%', fontSize: '0.875rem' }}>
-                    <thead style={{ backgroundColor: '#f8fafc' }}>
-                      <tr>
-                        <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Student</th>
-                        <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Type</th>
-                        <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Severity</th>
-                        <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Created</th>
-                        <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Suggested actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {flags.map((flag: any) => {
-                        const actions = FLAG_SUGGESTED_ACTIONS[flag.type] ?? []
-                        
-                        return (
-                          <tr key={flag.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                            <td style={{ padding: '0.5rem 0.75rem' }}>
-                              {flag.student?.displayName ?? flag.student_id}
-                              {flag.student?.grade && (
-                                <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#64748b' }}>
-                                  Grade {flag.student.grade}
-                                </span>
-                              )}
-                            </td>
-                            <td style={{ padding: '0.5rem 0.75rem' }}>
-                              {flag.type.replace(/_/g, ' ')}
-                            </td>
-                            <td style={{ padding: '0.5rem 0.75rem' }}>
-                              <span style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                borderRadius: '9999px',
-                                padding: '0.125rem 0.5rem',
-                                fontSize: '0.75rem',
-                                fontWeight: 500,
-                                ...(flag.severity === 'high'
-                                  ? { backgroundColor: '#fee2e2', color: '#991b1b' }
-                                  : flag.severity === 'moderate'
-                                  ? { backgroundColor: '#fef3c7', color: '#92400e' }
-                                  : { backgroundColor: '#d1fae5', color: '#065f46' }
-                                )
-                              }}>
-                                {flag.severity}
-                              </span>
-                            </td>
-                            <td style={{ padding: '0.5rem 0.75rem', color: '#64748b' }}>
-                              {new Date(flag.createdAt).toLocaleString()}
-                            </td>
-                            <td style={{ padding: '0.5rem 0.75rem', verticalAlign: 'top' }}>
-                              {actions.length === 0 ? (
-                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                  No suggestions yet
-                                </span>
-                              ) : (
-                                <ul style={{
-                                  listStyle: 'disc',
-                                  paddingLeft: '1rem',
-                                  fontSize: '0.75rem',
-                                  color: '#475569',
-                                  margin: 0,
-                                }}>
-                                  {actions.map((action, index) => (
-                                    <li key={index} style={{ marginBottom: '0.25rem' }}>
-                                      {action}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
+          <ProtectedRoute allowedRoles={['COUNSELLOR', 'ADMIN']}>
+            <CounselorDashboard students={students} onStudentsUpdate={setStudents} />
+          </ProtectedRoute>
         ) : activeView === 'parent' ? (
-          <ParentPortal students={students} />
+          <ProtectedRoute allowedRoles={['PARENT']}>
+            <ParentPortal students={students} />
+          </ProtectedRoute>
         ) : null}
       </main>
       
@@ -1714,8 +1257,6 @@ type StudentCheckInProps = {
   translations: typeof translations.en
   onCalmRoomSession?: (session: CalmRoomSession) => void
   deviceInfo?: DeviceInfo
-  recommendedPaths?: SkillPathRecommendation[] | null
-  onRecommendedPathsChange?: (paths: SkillPathRecommendation[] | null) => void
 }
 
 type CalmRoomQRScannerProps = {
@@ -1834,19 +1375,7 @@ const CalmRoomQRScanner = ({ onSessionComplete, onClose }: CalmRoomQRScannerProp
   )
 }
 
-const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferencesChange, resources, translations, onCalmRoomSession, deviceInfo, recommendedPaths, onRecommendedPathsChange }: StudentCheckInProps) => {
-  // Create translated slider config based on current language
-  const getTranslatedSliderConfig = () => {
-    return [
-      { key: 'mood', label: translations.questionMood, icon: '😊', emoji: ['😢', '😐', '🙂', '😊', '😄'], minLabel: translations.moodMin, maxLabel: translations.moodMax },
-      { key: 'sleepQuality', label: translations.questionSleep, icon: '😴', emoji: ['😴', '😑', '😌', '😊', '✨'], minLabel: translations.sleepMin, maxLabel: translations.sleepMax },
-      { key: 'concentration', label: translations.questionConcentration, icon: '🎯', emoji: ['💭', '🤔', '👀', '🎯', '⚡'], minLabel: translations.concentrationMin, maxLabel: translations.concentrationMax },
-      { key: 'energy', label: translations.questionEnergy, icon: '⚡', emoji: ['😴', '😑', '😊', '⚡', '🚀'], minLabel: translations.energyMin, maxLabel: translations.energyMax },
-      { key: 'worries', label: translations.questionWorries, icon: '💭', emoji: ['😌', '😊', '😐', '😟', '😰'], minLabel: translations.worriesMin, maxLabel: translations.worriesMax },
-      { key: 'burden', label: translations.questionBurden, icon: '🤝', emoji: ['💚', '👍', '😐', '😔', '😞'], minLabel: translations.burdenMin, maxLabel: translations.burdenMax },
-    ]
-  }
-  
+const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferencesChange, resources, translations, onCalmRoomSession, deviceInfo }: StudentCheckInProps) => {
   const [form, setForm] = useState({
     studentName: '',
     mood: 3,
@@ -1870,7 +1399,6 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
   const [showCrisisResponse, setShowCrisisResponse] = useState(false)
   const [safetyRisk, setSafetyRisk] = useState<'low' | 'moderate' | 'high' | 'immediate' | null>(null)
   const [showSkills, setShowSkills] = useState(false)
-  const [showSkillsPath, setShowSkillsPath] = useState(false)
   const [showPreferences, setShowPreferences] = useState(false)
   const [showCalmRoom, setShowCalmRoom] = useState(false)
   const [showPassiveSensing, setShowPassiveSensing] = useState(false)
@@ -1911,18 +1439,17 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
   
   // Evolving questions based on check-in count
   const getEvolvingQuestions = () => {
-    const baseConfig = getTranslatedSliderConfig()
-    if (checkInCount < 2) return baseConfig
+    if (checkInCount < 2) return sliderConfig
     if (checkInCount < 5) {
-      return baseConfig.map((q, i) => {
-        if (i === 0) return { ...q, label: translations.questionMoodAlt }
-        if (i === 2) return { ...q, label: translations.questionConcentrationAlt }
+      return sliderConfig.map((q, i) => {
+        if (i === 0) return { ...q, label: 'How did you feel most of this week?' }
+        if (i === 2) return { ...q, label: 'How sharp was your focus?' }
         return q
       })
     }
-    return baseConfig.map((q, i) => {
-      if (i === 0) return { ...q, label: translations.questionMoodShort }
-      if (i === 1) return { ...q, label: translations.questionSleepAlt }
+    return sliderConfig.map((q, i) => {
+      if (i === 0) return { ...q, label: 'Overall mood this week?' }
+      if (i === 1) return { ...q, label: 'How rested did you feel?' }
       return q
     })
   }
@@ -1987,9 +1514,9 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
             <h2>{translations.weeklyCheckIn}</h2>
             <p>{translations.checkInDesc}</p>
             <p className="universal-note">
-              <strong>{translations.forEveryStudent}</strong> {translations.goodDaysMatter} 💛<br />
+              <strong>For every student, every week.</strong> Good days and tough days both matter. 💛<br />
               <span style={{ fontSize: '0.9rem', display: 'block', marginTop: '0.5rem' }}>
-                {translations.youveDealtWithAlot}
+                You've probably already dealt with a lot on your own. This is a small way of not carrying it all by yourself.
               </span>
             </p>
           </div>
@@ -1999,7 +1526,7 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
               className="calm-room-btn" 
               onClick={() => setShowCalmRoom(true)}
             >
-              {translations.calmRoom}
+              🌿 Calm Room
             </button>
             <button 
               type="button" 
@@ -2013,29 +1540,29 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
         </div>
         {engagement.totalCheckIns > 0 && (
           <div className="engagement-badge">
-            <span>🔥 {engagement.currentStreak} {translations.weekStreakLabel}</span>
-            <span>📊 {engagement.totalCheckIns} {translations.checkInsLabel}</span>
+            <span>🔥 {engagement.currentStreak} week streak</span>
+            <span>📊 {engagement.totalCheckIns} check-ins</span>
           </div>
         )}
       </div>
       <div className="preferred-name-section">
         <div className="card preferred-name-card">
-          <label>{translations.preferredName}</label>
+          <label>✨ Preferred name (optional)</label>
           <input
             type="text"
-            placeholder={translations.stayAnonymous}
+            placeholder="You can stay anonymous"
             value={form.studentName}
             onChange={(e) => setForm((prev) => ({ ...prev, studentName: e.target.value }))}
           />
         </div>
         <div className="inspiration-note-card">
-          <p className="inspiration-quote">{translations.rumiQuote}</p>
-          <p className="inspiration-author">{translations.rumiAuthor}</p>
-          <p className="inspiration-message">{translations.youMatterMessage}</p>
+          <p className="inspiration-quote">"You are not a drop in the ocean. You are the entire ocean in a drop."</p>
+          <p className="inspiration-author">– Rumi</p>
+          <p className="inspiration-message">You matter more than you know, and your feelings matter too. 🌊💛</p>
         </div>
       </div>
       <div className="stepper">
-        {[translations.stepMoodBasics, translations.stepEnergyWorries, translations.stepWrapUp, translations.stepSafetyCheck].map((label, index) => (
+        {['Mood & basics', 'Energy & worries', 'Wrap-up', 'Safety check'].map((label, index) => (
           <div key={label} className={`step ${index === step ? 'active' : step > index ? 'done' : ''}`}>
             <span>{index + 1}</span>
             <p>{label}</p>
@@ -2047,11 +1574,11 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
         <>
           <div className="card-grid">
             {dynamicQuestions.slice(0, 3).map((slider) => (
-              <SliderCard key={slider.key} config={slider as any} value={form[slider.key as keyof typeof form] as number} onChange={handleSliderChange} />
+              <SliderCard key={slider.key} config={slider as typeof sliderConfig[number]} value={form[slider.key]} onChange={handleSliderChange} />
             ))}
           {checkInCount >= 3 && (
             <div className="card skill-prompt">
-              <p>{translations.tryQuickSkill}</p>
+              <p>💡 Try a quick skill practice?</p>
               <button type="button" className="ghost" onClick={() => setShowSkills(true)}>
                 Explore micro-skills
               </button>
@@ -2074,7 +1601,7 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
       {step === 1 && (
         <div className="card-grid">
           {dynamicQuestions.slice(3).map((slider) => (
-            <SliderCard key={slider.key} config={slider as any} value={form[slider.key as keyof typeof form] as number} onChange={handleSliderChange} />
+            <SliderCard key={slider.key} config={slider as typeof sliderConfig[number]} value={form[slider.key]} onChange={handleSliderChange} />
           ))}
           <div className="card">
             <label>Anything else you want adults to know? (optional)</label>
@@ -2089,43 +1616,31 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
       )}
 
       {step === 2 && (
-        <div className="wrapup-section">
-          <div className="snapshot-card">
-            <div className="snapshot-badge">
-              <span>✅</span>
-              <span>Check-in complete · This week's summary</span>
-            </div>
-            <h3>You finished this week's check-in 🎉</h3>
+        <div className="card-grid cognitive-grid">
+          <CognitiveMiniTask score={cognitiveScore} onScoreChange={setCognitiveScore} />
+          <ScreenUseReflection 
+            value={form.screenUseImpact}
+            onChange={(value) => setForm((prev) => ({ ...prev, screenUseImpact: value }))}
+          />
+          <div className="card summary-card">
+            <h3>Your weekly snapshot</h3>
             <ul>
               <li>
-                Mood: <strong>{form.mood} / 5</strong>
+                Mood sits at <strong>{form.mood}/5</strong>
               </li>
               <li>
-                Sleep & energy: <strong>{Math.round((form.sleepQuality + form.energy) / 2)} / 5</strong>
+                Sleep & energy average <strong>{Math.round((form.sleepQuality + form.energy) / 2)}/5</strong>
               </li>
               <li>
-                Worries: <strong>{form.worries >= 3 ? 'heavy' : 'manageable'}</strong>
+                Worries feel <strong>{form.worries >= 3 ? 'heavy' : 'manageable'}</strong>
               </li>
               {cognitiveScore && (
                 <li>
-                  Reaction time: <strong>{cognitiveScore} ms</strong>
+                  Reaction time mini-game: <strong>{cognitiveScore} ms</strong>
                 </li>
               )}
             </ul>
-            <p className="snapshot-note">This summary is just for you and your student support team.</p>
-          </div>
-          <div className="wrapup-grid">
-            <div className="optional-activity-card">
-              <span className="optional-pill">Optional</span>
-              <CognitiveMiniTask score={cognitiveScore} onScoreChange={setCognitiveScore} />
-            </div>
-            <div className="optional-activity-card">
-              <span className="optional-pill">Optional</span>
-              <ScreenUseReflection 
-                value={form.screenUseImpact}
-                onChange={(value) => setForm((prev) => ({ ...prev, screenUseImpact: value }))}
-              />
-            </div>
+            <p>Ready to share this privately with your student support team?</p>
           </div>
         </div>
       )}
@@ -2157,7 +1672,7 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
           </button>
         ) : step === 2 ? (
           <button className="primary" onClick={handleNext}>
-            {translations.continueToSafety}
+            Continue to safety check
           </button>
         ) : null}
       </div>
@@ -2187,73 +1702,23 @@ const StudentCheckIn = ({ onSubmit, lastSaved, students, preferences, onPreferen
             </button>
             <div className="success-icon">✓</div>
             <h2>
-              {translations.thanksForCheckingIn}, {lastSaved.studentName}! {engagement.currentStreak > 1 && ` ${translations.weekStreak.replace('{count}', engagement.currentStreak.toString())}`}
-              {engagement.currentStreak === 1 && ` ${translations.gladYoureHere}`}
+              Thanks for checking in, {lastSaved.studentName}! {engagement.currentStreak > 1 && ` You're on a ${engagement.currentStreak} week streak! 🔥`}
+              {engagement.currentStreak === 1 && ' We\'re glad you\'re here today, even on a hard week. 💛'}
             </h2>
-            <p className="modal-note">{translations.adultsSeeTrends.replace('{date}', formatDate(lastSaved.createdAt))}</p>
-            
-            {recommendedPaths && recommendedPaths.length > 0 && (
-              <div style={{ marginTop: '1.5rem', borderTop: '1px solid #e2e8f0', paddingTop: '1rem' }}>
-                <h3 style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>
-                  Suggested skill paths to try next
-                </h3>
-                <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.75rem' }}>
-                  Based on your answers today, these short paths might help. You can explore them anytime.
-                </p>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {recommendedPaths.map(path => (
-                    <div
-                      key={path.id}
-                      style={{
-                        borderRadius: '0.75rem',
-                        border: '1px solid #e2e8f0',
-                        padding: '0.75rem 1rem',
-                        backgroundColor: '#f8fafc',
-                      }}
-                    >
-                      <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{path.title}</div>
-                      <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginTop: '0.25rem' }}>
-                        {path.theme === 'anxiety' && 'Anxiety / Stress'}
-                        {path.theme === 'sadness' && 'Low mood / Feeling down'}
-                        {path.theme === 'sleep' && 'Sleep & Nighttime'}
-                        {path.theme === 'anger' && 'Anger / Frustration'}
-                      </div>
-                      <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.25rem' }}>
-                        {path.shortDescription}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {checkInCount >= 2 && (!recommendedPaths || recommendedPaths.length === 0) && (
+            <p className="modal-note">Adults see trends to offer support—never diagnoses. Your check-in from {formatDate(lastSaved.createdAt)} is on file.</p>
+            {checkInCount >= 2 && (
               <button type="button" className="primary" onClick={() => { setShowSkills(true); setSubmitted(false); }}>
-                {translations.trySkillPractice}
+                Try a quick skill practice →
               </button>
             )}
-            <button type="button" className="ghost" onClick={() => {
-              setSubmitted(false)
-              onRecommendedPathsChange?.(null)
-            }}>
-              {translations.gotIt}
+            <button type="button" className="ghost" onClick={() => setSubmitted(false)}>
+              Got it
             </button>
           </div>
         </div>
       )}
       
       {showSkills && <CBTMicroSkills onClose={() => setShowSkills(false)} />}
-      {showSkillsPath && (
-        <SkillsPathModal
-          recommendedPaths={[]}
-          onClose={() => setShowSkillsPath(false)}
-          onPathComplete={(pathId, preMood, postMood) => {
-            console.log('Path completed:', { pathId, preMood, postMood })
-            // In production, send to backend API
-          }}
-        />
-      )}
       {showPreferences && (
         <PreferencesModal
           preferences={preferences}
@@ -2457,14 +1922,12 @@ const CognitiveMiniTask = ({ score, onScoreChange }: CognitiveMiniTaskProps) => 
     <div className={`card cognitive ${status}`}>
       <div className="cognitive__body" onClick={handleTap}>
         <p>{message}</p>
-        {status !== 'waiting' && (
-          <button type="button" className="ghost" onClick={(e) => {
-            e.stopPropagation()
-            handleTap()
-          }}>
-            {status === 'tap' ? 'Tap!' : 'Start mini-game'}
-          </button>
-        )}
+        <button type="button" className="ghost" onClick={(e) => {
+          e.stopPropagation()
+          handleTap()
+        }}>
+          {status === 'tap' ? 'Tap!' : 'Start mini-game'}
+        </button>
       </div>
       <p className="cognitive__note">
         Optional 30s attention pulse. No scores are shared beyond your student support team.
@@ -2477,7 +1940,6 @@ const CognitiveMiniTask = ({ score, onScoreChange }: CognitiveMiniTaskProps) => 
 type CounselorDashboardProps = {
   students: StudentRecord[]
   onStudentsUpdate: (students: StudentRecord[]) => void
-  translations: typeof translations.en
 }
 
 // Future: Dashboard view switching
@@ -2581,7 +2043,7 @@ const StartGroupSessionButton = () => {
   )
 }
 
-const CounselorDashboard = ({ students, onStudentsUpdate, translations }: CounselorDashboardProps) => {
+const CounselorDashboard = ({ students, onStudentsUpdate }: CounselorDashboardProps) => {
   const [selectedId, setSelectedId] = useState(students[0]?.id ?? '')
   const [activeView, setActiveView] = useState<'overview' | 'triage' | 'audit'>('overview')
   const [currentRole] = useState<UserRole>('counselor')
@@ -2679,7 +2141,7 @@ const CounselorDashboard = ({ students, onStudentsUpdate, translations }: Counse
     <section className="panel">
       <div className="panel__header">
         <h2>Counselor & school dashboard</h2>
-        <p>{translations.universalScreeningResults} 
+        <p>Universal screening results. Validated measures (PHQ-A, GAD-7) help identify students who need support. 
         Clear referral workflow: flagged → counselor notified → structured follow-up.</p>
         <div className="staff-reminder" style={{ 
           background: '#fef3c7', 
@@ -3088,7 +2550,7 @@ const AuditLogViewer = ({ auditLogs }: AuditLogViewerProps) => {
   )
 }
 
-// RiskBadge component - currently unused, commented out for now
+// RiskBadge component (currently unused, kept for future use)
 // const RiskBadge = ({ entry }: { entry?: CheckInEntry }) => {
 //   const score = calculateRiskScore(entry)
 //   const band = riskBand(score)
@@ -3258,155 +2720,63 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
   const [selectedFollowUp, setSelectedFollowUp] = useState<FollowUpRecord | null>(null)
   const [formData, setFormData] = useState({
     status: 'pending' as FollowUpStatus,
-    scheduledAt: '', // datetime-local format string
+    scheduledDate: '',
     counselorNotes: '',
     actionTaken: '',
   })
-  const [followUps, setFollowUps] = useState<FollowUpRecord[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  // Load follow-ups from API on mount
-  useEffect(() => {
-    const loadFollowUps = async () => {
-      try {
-        setLoading(true)
-        // Set up auth token for API calls
-        const token = createMockToken('counsellor-1', 'COUNSELLOR', 'school-dev-1')
-        setMockToken(token)
-        
-        const apiFollowUps = await counsellorApi.getFollowUps(student.id)
-        
-        // Convert API format to FollowUpRecord format
-        const converted = apiFollowUps.map((f: any) => ({
-          id: f.id,
-          studentId: f.studentId,
-          checkInId: f.checkInId || '',
-          flaggedDate: f.createdAt,
-          status: f.status,
-          scheduledAt: f.scheduledAt,
-          counselorNotes: f.notes,
-          actionTaken: f.actionTaken,
-          createdAt: f.createdAt,
-          updatedAt: f.updatedAt,
-        }))
-        
-        setFollowUps(converted)
-        setError(null)
-      } catch (err) {
-        console.error('Failed to load follow-ups:', err)
-        setError('Failed to load follow-ups. Using local data.')
-        // Fallback to localStorage if API fails
-        const stored = localStorage.getItem(FOLLOWUPS_KEY)
-        const allFollowUps = stored ? JSON.parse(stored) : []
-        const studentFollowUps = allFollowUps.filter((f: FollowUpRecord) => f.studentId === student.id)
-        setFollowUps(studentFollowUps)
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    loadFollowUps()
-  }, [student.id])
-
+  const followUps = student.followUps || []
   const pendingFollowUps = followUps.filter(f => f.status === 'pending')
   
-  const handleStatusChange = async (followUpId: string, newStatus: FollowUpStatus) => {
-    try {
-      // Update via API
-      await counsellorApi.updateFollowUp(followUpId, { status: newStatus })
-      
-      // Update local state
-      setFollowUps(prev => prev.map(f => 
+  const handleStatusChange = (followUpId: string, newStatus: FollowUpStatus) => {
+    const updated = {
+      ...student,
+      followUps: student.followUps?.map(f => 
         f.id === followUpId 
           ? { ...f, status: newStatus, updatedAt: new Date().toISOString() }
           : f
-      ))
-      
-      // Also update student record for UI consistency
-      const updated = {
-        ...student,
-        followUps: student.followUps?.map(f => 
-          f.id === followUpId 
-            ? { ...f, status: newStatus, updatedAt: new Date().toISOString() }
-            : f
-        ),
-      }
-      onUpdate(updated)
-    } catch (err) {
-      console.error('Failed to update follow-up status:', err)
-      alert('Failed to update follow-up status. Please try again.')
+      ),
     }
+    onUpdate(updated)
+    
+    // Update localStorage
+    const stored = localStorage.getItem(FOLLOWUPS_KEY)
+    const allFollowUps = stored ? JSON.parse(stored) : []
+    const updatedAll = allFollowUps.map((f: FollowUpRecord) =>
+      f.id === followUpId ? { ...f, status: newStatus, updatedAt: new Date().toISOString() } : f
+    )
+    localStorage.setItem(FOLLOWUPS_KEY, JSON.stringify(updatedAll))
   }
 
   const handleEdit = (followUp: FollowUpRecord) => {
     setSelectedFollowUp(followUp)
-    const scheduledAt = getScheduledAt(followUp)
     setFormData({
       status: followUp.status,
-      scheduledAt: isoToDateTimeLocal(scheduledAt),
+      scheduledDate: followUp.scheduledDate || '',
       counselorNotes: followUp.counselorNotes || '',
       actionTaken: followUp.actionTaken || '',
     })
     setShowForm(true)
   }
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!selectedFollowUp) return
     
-    try {
-      // Convert datetime-local to ISO string
-      const scheduledAt = dateTimeLocalToIso(formData.scheduledAt)
-      
-      // Update via API
-      const updated = await counsellorApi.updateFollowUp(selectedFollowUp.id, {
-        status: formData.status,
-        scheduledAt: scheduledAt || null,
-        notes: formData.counselorNotes || undefined,
-        actionTaken: formData.actionTaken || undefined,
-      })
-      
-      // Convert API response to FollowUpRecord format
-      const converted: FollowUpRecord = {
-        id: updated.id,
-        studentId: updated.studentId,
-        checkInId: selectedFollowUp.checkInId,
-        flaggedDate: updated.createdAt,
-        status: updated.status as FollowUpStatus,
-        scheduledAt: updated.scheduledAt || undefined,
-        counselorNotes: updated.notes,
-        actionTaken: updated.actionTaken,
-        createdAt: updated.createdAt,
-        updatedAt: updated.updatedAt,
-      }
-      
-      // Update local state
-      setFollowUps(prev => prev.map(f => f.id === selectedFollowUp.id ? converted : f))
-      
-      // Also update student record for UI consistency
-      const studentUpdated = {
-        ...student,
-        followUps: student.followUps?.map(f =>
-          f.id === selectedFollowUp.id ? converted : f
-        ),
-      }
-      onUpdate(studentUpdated)
-      
-      setShowForm(false)
-      setSelectedFollowUp(null)
-    } catch (err) {
-      console.error('Failed to save follow-up:', err)
-      alert('Failed to save follow-up. Please try again.')
+    const updated = {
+      ...student,
+      followUps: student.followUps?.map(f =>
+        f.id === selectedFollowUp.id
+          ? {
+              ...f,
+              ...formData,
+              updatedAt: new Date().toISOString(),
+            }
+          : f
+      ),
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="follow-up-workflow">
-        <h4>Referral workflow & follow-ups</h4>
-        <p>Loading follow-ups...</p>
-      </div>
-    )
+    onUpdate(updated)
+    setShowForm(false)
+    setSelectedFollowUp(null)
   }
 
   if (followUps.length === 0) return null
@@ -3414,11 +2784,6 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
   return (
     <div className="follow-up-workflow">
       <h4>Referral workflow & follow-ups</h4>
-      {error && (
-        <div className="pending-alert" style={{ background: '#fef3c7', borderColor: '#fbbf24' }}>
-          ⚠️ {error}
-        </div>
-      )}
       {pendingFollowUps.length > 0 && (
         <div className="pending-alert">
           ⚠️ {pendingFollowUps.length} pending follow-up{pendingFollowUps.length > 1 ? 's' : ''} need attention
@@ -3438,12 +2803,9 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
                   PHQ: {checkIn.phqScore ?? 0} | GAD: {checkIn.gadScore ?? 0}
                 </div>
               )}
-              {(() => {
-                const scheduledAt = getScheduledAt(followUp)
-                return scheduledAt && (
-                  <p className="follow-up-scheduled">Scheduled: {formatDateTime(scheduledAt)}</p>
-                )
-              })()}
+              {followUp.scheduledDate && (
+                <p className="follow-up-scheduled">Scheduled: {formatDate(followUp.scheduledDate)}</p>
+              )}
               {followUp.counselorNotes && (
                 <p className="follow-up-notes">{followUp.counselorNotes}</p>
               )}
@@ -3485,15 +2847,12 @@ const FollowUpWorkflow = ({ student, onUpdate }: FollowUpWorkflowProps) => {
             </select>
           </label>
           <label>
-            Scheduled date & time
+            Scheduled date
             <input
-              type="datetime-local"
-              value={formData.scheduledAt}
-              onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
+              type="date"
+              value={formData.scheduledDate}
+              onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
             />
-            <small style={{ display: 'block', marginTop: '0.5rem', color: '#64748b', fontSize: '0.85rem' }}>
-              This helps your team remember when the student is expecting to come in.
-            </small>
           </label>
           <label>
             Counselor notes
@@ -3788,488 +3147,6 @@ const CBTMicroSkills = ({ onClose }: CBTMicroSkillsProps) => {
                 {bookmarks.includes(selectedSkill!.id) ? '⭐ Bookmarked' : '☆ Bookmark this skill'}
               </button>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// Skills Paths System
-const skillPaths: SkillPath[] = [
-  {
-    id: 'anxiety',
-    name: 'Feeling anxious',
-    description: 'Learn to manage worry and anxiety with evidence-based techniques.',
-    icon: '😰',
-    recommendedFor: { mood: 2, worries: 4 },
-    modules: [
-      {
-        id: 'anxiety-1',
-        type: 'psychoeducation',
-        title: 'What is anxiety?',
-        duration: '2 min',
-        content: [
-          'Anxiety is your body\'s natural response to stress or danger.',
-          'It\'s normal to feel anxious sometimes—everyone does.',
-          'Anxiety becomes a problem when it\'s too intense or lasts too long.',
-          'The good news: You can learn skills to manage it.',
-        ],
-      },
-      {
-        id: 'anxiety-2',
-        type: 'breathing',
-        title: '4-7-8 Breathing',
-        duration: '3 min',
-        content: [
-          'Breathe in through your nose for 4 counts',
-          'Hold your breath for 7 counts',
-          'Breathe out through your mouth for 8 counts',
-          'Repeat 4 times',
-          'This activates your body\'s relaxation response.',
-        ],
-      },
-      {
-        id: 'anxiety-3',
-        type: 'thought-challenging',
-        title: 'What would you tell a friend?',
-        duration: '3 min',
-        content: [
-          'Think of a worry you\'re having right now.',
-          'Imagine your best friend came to you with this same worry.',
-          'What would you tell them? Write it down.',
-          'Now, can you apply that same kindness to yourself?',
-          'Often, we\'re harder on ourselves than we are on others.',
-        ],
-      },
-      {
-        id: 'anxiety-4',
-        type: 'action-plan',
-        title: 'Tonight I\'ll try...',
-        duration: '1 min',
-        content: [
-          'Pick one small thing you can do tonight to help with anxiety:',
-          '• Do 4-7-8 breathing before bed',
-          '• Write down 3 things you\'re grateful for',
-          '• Put your phone away 1 hour before sleep',
-          '• Talk to someone you trust about how you\'re feeling',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'sadness',
-    name: 'Feeling sad',
-    description: 'Understand sadness and build skills to feel better.',
-    icon: '😢',
-    recommendedFor: { mood: 2, burden: 4 },
-    modules: [
-      {
-        id: 'sadness-1',
-        type: 'psychoeducation',
-        title: 'Why do we feel sad?',
-        duration: '2 min',
-        content: [
-          'Sadness is a normal human emotion—everyone feels it sometimes.',
-          'It can be triggered by loss, disappointment, or stress.',
-          'Feeling sad doesn\'t mean something is wrong with you.',
-          'It\'s okay to feel sad, and it\'s also okay to want to feel better.',
-        ],
-      },
-      {
-        id: 'sadness-2',
-        type: 'breathing',
-        title: 'Box Breathing',
-        duration: '2 min',
-        content: [
-          'Breathe in for 4 counts',
-          'Hold for 4 counts',
-          'Breathe out for 4 counts',
-          'Hold for 4 counts',
-          'Repeat 4 times',
-        ],
-      },
-      {
-        id: 'sadness-3',
-        type: 'thought-challenging',
-        title: 'Challenge unhelpful thoughts',
-        duration: '3 min',
-        content: [
-          'Notice a thought like "I always mess up" or "Nothing will get better"',
-          'Ask: What evidence supports this?',
-          'Ask: What evidence contradicts it?',
-          'Reframe: "I sometimes struggle, but I also have successes"',
-          'Remember: Thoughts are not facts.',
-        ],
-      },
-      {
-        id: 'sadness-4',
-        type: 'action-plan',
-        title: 'Tonight I\'ll try...',
-        duration: '1 min',
-        content: [
-          'Pick one small thing you can do tonight:',
-          '• Call or text someone you care about',
-          '• Do something kind for yourself (warm shower, favorite music)',
-          '• Write down one thing you\'re grateful for',
-          '• Go for a 10-minute walk outside',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'sleep',
-    name: 'Can\'t sleep',
-    description: 'Build better sleep habits for restful nights.',
-    icon: '😴',
-    recommendedFor: { sleepQuality: 2 },
-    modules: [
-      {
-        id: 'sleep-1',
-        type: 'psychoeducation',
-        title: 'Why sleep matters',
-        duration: '2 min',
-        content: [
-          'Sleep helps your brain process emotions and memories.',
-          'Poor sleep can make stress and mood worse.',
-          'Good sleep habits can improve your mood and energy.',
-          'Small changes can make a big difference.',
-        ],
-      },
-      {
-        id: 'sleep-2',
-        type: 'breathing',
-        title: 'Progressive Muscle Relaxation',
-        duration: '5 min',
-        content: [
-          'Lie down comfortably',
-          'Tense your toes for 5 seconds, then relax',
-          'Move up: tense and relax each muscle group',
-          'Legs → stomach → arms → shoulders → face',
-          'Focus on the feeling of relaxation',
-        ],
-      },
-      {
-        id: 'sleep-3',
-        type: 'thought-challenging',
-        title: 'Sleep thoughts',
-        duration: '2 min',
-        content: [
-          'If you\'re worrying in bed, try this:',
-          'Write down your worries on paper (not your phone)',
-          'Tell yourself: "I\'ll deal with this tomorrow"',
-          'Focus on your breathing instead of your thoughts',
-          'Remember: Rest is still valuable even if you\'re not fully asleep.',
-        ],
-      },
-      {
-        id: 'sleep-4',
-        type: 'action-plan',
-        title: 'Tonight I\'ll try...',
-        duration: '1 min',
-        content: [
-          'Pick one sleep habit to try:',
-          '• Go to bed at the same time tonight',
-          '• Put your phone away 1 hour before bed',
-          '• Keep your room cool and dark',
-          '• Avoid caffeine after 2pm',
-        ],
-      },
-    ],
-  },
-  {
-    id: 'anger',
-    name: 'Angry / overwhelmed',
-    description: 'Manage anger and overwhelm with healthy coping skills.',
-    icon: '😠',
-    recommendedFor: { energy: 2, concentration: 2 },
-    modules: [
-      {
-        id: 'anger-1',
-        type: 'psychoeducation',
-        title: 'Understanding anger',
-        duration: '2 min',
-        content: [
-          'Anger is a normal emotion—it signals that something feels wrong.',
-          'Anger can come from feeling overwhelmed, frustrated, or hurt.',
-          'It\'s okay to feel angry, but how you express it matters.',
-          'You can learn to manage anger in healthy ways.',
-        ],
-      },
-      {
-        id: 'anger-2',
-        type: 'breathing',
-        title: 'Cooling Breath',
-        duration: '2 min',
-        content: [
-          'Breathe in through your nose',
-          'Breathe out through your mouth (like you\'re cooling soup)',
-          'Make the exhale longer than the inhale',
-          'Repeat 5-10 times',
-          'This helps calm your nervous system.',
-        ],
-      },
-      {
-        id: 'anger-3',
-        type: 'thought-challenging',
-        title: 'What\'s really going on?',
-        duration: '3 min',
-        content: [
-          'When you feel angry, pause and ask:',
-          'What am I really feeling? (hurt? frustrated? overwhelmed?)',
-          'What do I need right now? (space? understanding? help?)',
-          'What can I control? (my response, my actions)',
-          'What can\'t I control? (other people, situations)',
-        ],
-      },
-      {
-        id: 'anger-4',
-        type: 'action-plan',
-        title: 'Tonight I\'ll try...',
-        duration: '1 min',
-        content: [
-          'Pick one healthy way to manage anger:',
-          '• Take 5 deep breaths before responding',
-          '• Go for a walk or do some exercise',
-          '• Write down what you\'re feeling',
-          '• Talk to someone you trust',
-        ],
-      },
-    ],
-  },
-]
-
-// Old function removed - using getRecommendedPathsFromEntry instead
-
-type SkillsPathModalProps = {
-  recommendedPaths?: SkillPath[]
-  onClose: () => void
-  onPathComplete?: (pathId: string, preMood: number, postMood: number) => void
-}
-
-const SkillsPathModal = ({ recommendedPaths, onClose, onPathComplete }: SkillsPathModalProps) => {
-  const [selectedPath, setSelectedPath] = useState<SkillPath | null>(null)
-  const [currentModuleIndex, setCurrentModuleIndex] = useState(0)
-  const [preMood, setPreMood] = useState<number | null>(null)
-  const [postMood, setPostMood] = useState<number | null>(null)
-  const [showPostMood, setShowPostMood] = useState(false)
-  
-  const [skillSessions, setSkillSessions] = useState<SkillSession[]>(() => {
-    const stored = localStorage.getItem(SKILL_SESSIONS_KEY)
-    return stored ? JSON.parse(stored) : []
-  })
-  
-  const handlePathStart = (path: SkillPath) => {
-    setSelectedPath(path)
-    setCurrentModuleIndex(0)
-    setPreMood(null)
-    setPostMood(null)
-    setShowPostMood(false)
-  }
-  
-  const handleModuleComplete = () => {
-    if (!selectedPath) return
-    
-    if (currentModuleIndex < selectedPath.modules.length - 1) {
-      setCurrentModuleIndex(currentModuleIndex + 1)
-    } else {
-      // Path complete - show post-mood question
-      setShowPostMood(true)
-    }
-  }
-  
-  const handlePathComplete = () => {
-    if (!selectedPath || preMood === null || postMood === null) return
-    
-    const session: SkillSession = {
-      id: randomId(),
-      studentId: 'current-student', // In production, get from auth
-      pathId: selectedPath.id,
-      pathName: selectedPath.name,
-      preMood,
-      postMood,
-      completedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    }
-    
-    const updated = [...skillSessions, session]
-    setSkillSessions(updated)
-    localStorage.setItem(SKILL_SESSIONS_KEY, JSON.stringify(updated))
-    
-    if (onPathComplete) {
-      onPathComplete(selectedPath.id, preMood, postMood)
-    }
-    
-    // Reset and go back to path selection
-    setSelectedPath(null)
-    setCurrentModuleIndex(0)
-    setPreMood(null)
-    setPostMood(null)
-    setShowPostMood(false)
-  }
-  
-  const currentModule = selectedPath?.modules[currentModuleIndex]
-  const completedPaths = skillSessions.map(s => s.pathId)
-  
-  return (
-    <div className="skills-overlay" onClick={onClose}>
-      <div className="skills-modal" onClick={(e) => e.stopPropagation()}>
-        <header>
-          <h3>Skills Paths</h3>
-          <button type="button" className="close" onClick={onClose}>×</button>
-        </header>
-        
-        {!selectedPath ? (
-          <div className="skills-path-selection">
-            <p className="skills-intro">
-              Evidence-based skill paths to help you feel better. Each path takes about 5-10 minutes.
-            </p>
-            
-            {recommendedPaths && recommendedPaths.length > 0 && (
-              <div className="recommended-paths">
-                <h4>💡 Recommended for you</h4>
-                <div className="paths-grid">
-                  {recommendedPaths.map((path) => (
-                    <div
-                      key={path.id}
-                      className={`path-card ${completedPaths.includes(path.id) ? 'completed' : ''}`}
-                      onClick={() => handlePathStart(path)}
-                    >
-                      <span className="path-icon">{path.icon}</span>
-                      <h4>{path.name}</h4>
-                      <p>{path.description}</p>
-                      {completedPaths.includes(path.id) && (
-                        <span className="completed-badge">✓ Completed</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            <div className="all-paths">
-              <h4>All Paths</h4>
-              <div className="paths-grid">
-                {skillPaths.map((path) => (
-                  <div
-                    key={path.id}
-                    className={`path-card ${completedPaths.includes(path.id) ? 'completed' : ''}`}
-                    onClick={() => handlePathStart(path)}
-                  >
-                    <span className="path-icon">{path.icon}</span>
-                    <h4>{path.name}</h4>
-                    <p>{path.description}</p>
-                    {completedPaths.includes(path.id) && (
-                      <span className="completed-badge">✓ Completed</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="path-module-view">
-            {!showPostMood ? (
-              <>
-                {preMood === null && currentModuleIndex === 0 ? (
-                  <div className="pre-mood-question">
-                    <h4>Before we start, how are you feeling right now?</h4>
-                    <div className="mood-selector">
-                      {[1, 2, 3, 4, 5].map((mood) => (
-                        <button
-                          key={mood}
-                          type="button"
-                          className={`mood-btn ${preMood === mood ? 'selected' : ''}`}
-                          onClick={() => {
-                            setPreMood(mood)
-                          }}
-                        >
-                          {mood === 1 ? '😢' : mood === 2 ? '😐' : mood === 3 ? '🙂' : mood === 4 ? '😊' : '😄'}
-                          <span>{mood}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      className="primary"
-                      onClick={() => {
-                        // Pre-mood is set, continue to first module
-                      }}
-                      disabled={preMood === null}
-                    >
-                      Continue
-                    </button>
-                  </div>
-                ) : currentModule ? (
-                  <div className="module-content">
-                    <div className="module-progress">
-                      Module {currentModuleIndex + 1} of {selectedPath.modules.length}
-                    </div>
-                    <h4>{currentModule.title}</h4>
-                    <p className="module-duration">{currentModule.duration}</p>
-                    <div className="module-steps">
-                      {currentModule.content.map((step, i) => (
-                        <div key={i} className="module-step">
-                          {currentModule.type === 'breathing' && i === 0 && '🌬️ '}
-                          {currentModule.type === 'thought-challenging' && i === 0 && '💭 '}
-                          {currentModule.type === 'action-plan' && i === 0 && '✅ '}
-                          {step}
-                        </div>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      className="primary"
-                      onClick={handleModuleComplete}
-                    >
-                      {currentModuleIndex < selectedPath.modules.length - 1 ? 'Next' : 'Complete Path'}
-                    </button>
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <div className="post-mood-question">
-                <h4>How are you feeling now?</h4>
-                <p>This helps us understand if the skills helped.</p>
-                <div className="mood-selector">
-                  {[1, 2, 3, 4, 5].map((mood) => (
-                    <button
-                      key={mood}
-                      type="button"
-                      className={`mood-btn ${postMood === mood ? 'selected' : ''}`}
-                      onClick={() => setPostMood(mood)}
-                    >
-                      {mood === 1 ? '😢' : mood === 2 ? '😐' : mood === 3 ? '🙂' : mood === 4 ? '😊' : '😄'}
-                      <span>{mood}</span>
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={handlePathComplete}
-                  disabled={postMood === null}
-                >
-                  Complete
-                </button>
-              </div>
-            )}
-            
-            <button
-              type="button"
-              className="ghost back-btn"
-              onClick={() => {
-                if (showPostMood) {
-                  setShowPostMood(false)
-                } else {
-                  setSelectedPath(null)
-                  setCurrentModuleIndex(0)
-                  setPreMood(null)
-                }
-              }}
-            >
-              ← Back
-            </button>
           </div>
         )}
       </div>
@@ -5263,7 +4140,6 @@ const PrivacyEthicsFooter = () => {
             <span className="privacy-badge">🚫 No data selling</span>
             <span className="privacy-badge">🚫 No advertising</span>
             <span className="privacy-badge">🚫 No social media tracking</span>
-            <span className="privacy-badge">💚 Non-profit</span>
           </div>
           <div className="privacy-links">
             <button type="button" className="privacy-link" onClick={() => setShowPrivacyModal(true)}>
@@ -5294,10 +4170,6 @@ const PrivacyEthicsFooter = () => {
 
 const PrivacyEthicsModal = ({ onClose }: { onClose: () => void }) => {
   const [activeTab, setActiveTab] = useState<'privacy' | 'visibility' | 'ethics'>('privacy')
-  const stored = localStorage.getItem(PREFERENCES_KEY)
-  const parsed = stored ? JSON.parse(stored) : { language: 'en' }
-  const lang = parsed.language || 'en'
-  const t = translations[lang as keyof typeof translations]
 
   return (
     <div className="skills-overlay" onClick={onClose}>
@@ -5443,16 +4315,6 @@ const PrivacyEthicsModal = ({ onClose }: { onClose: () => void }) => {
             <div>
               <h4>💚 Ethical Commitments</h4>
               <div className="privacy-section">
-                <strong>Non-Profit Mission</strong>
-                <p>This tool is built for student well-being, not profit. We commit to:</p>
-                <ul>
-                  <li>No monetization of student data</li>
-                  <li>No advertising revenue</li>
-                  <li>No selling to third parties</li>
-                  <li>Transparent, ethical data use</li>
-                </ul>
-              </div>
-              <div className="privacy-section">
                 <strong>Reducing Stigma</strong>
                 <ul>
                   <li>Anonymous check-ins available</li>
@@ -5494,7 +4356,7 @@ const PrivacyEthicsModal = ({ onClose }: { onClose: () => void }) => {
           )}
         </div>
         <div className="privacy-footer-actions">
-          <button type="button" className="primary" onClick={onClose}>{t.gotIt}</button>
+          <button type="button" className="primary" onClick={onClose}>Got it</button>
         </div>
       </div>
     </div>
@@ -5817,11 +4679,6 @@ const DailyMicroCheckInModal = ({ onClose, onSubmit }: DailyMicroCheckInModalPro
 }
 
 const AboutAppModal = ({ onClose }: { onClose: () => void }) => {
-  const stored = localStorage.getItem(PREFERENCES_KEY)
-  const parsed = stored ? JSON.parse(stored) : { language: 'en' }
-  const lang = parsed.language || 'en'
-  const t = translations[lang as keyof typeof translations]
-  
   return (
     <div className="skills-overlay" onClick={onClose}>
       <div className="skills-modal" onClick={(e) => e.stopPropagation()}>
@@ -5861,7 +4718,7 @@ const AboutAppModal = ({ onClose }: { onClose: () => void }) => {
             </p>
           </section>
           <div className="form-actions">
-            <button type="button" className="primary" onClick={onClose}>{t.gotIt}</button>
+            <button type="button" className="primary" onClick={onClose}>Got it</button>
           </div>
         </div>
       </div>
@@ -5876,10 +4733,6 @@ type DataSharingModalProps = {
 
 const DataSharingModal = ({ student, onClose }: DataSharingModalProps) => {
   const latest = student?.history.at(-1)
-  const stored = localStorage.getItem(PREFERENCES_KEY)
-  const parsed = stored ? JSON.parse(stored) : { language: 'en' }
-  const lang = parsed.language || 'en'
-  const t = translations[lang as keyof typeof translations]
   
   return (
     <div className="skills-overlay" onClick={onClose}>
@@ -5932,7 +4785,7 @@ const DataSharingModal = ({ student, onClose }: DataSharingModalProps) => {
             </section>
           )}
           <div className="form-actions">
-            <button type="button" className="primary" onClick={onClose}>{t.gotIt}</button>
+            <button type="button" className="primary" onClick={onClose}>Got it</button>
           </div>
         </div>
       </div>
