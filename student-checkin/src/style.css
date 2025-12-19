@@ -214,6 +214,8 @@ body {
   border-radius: 24px;
   padding: 1.5rem;
   border: 1px solid #B8E6E6;
+  width: 100%;
+  box-sizing: border-box;
   box-shadow: 0 10px 30px rgba(75, 175, 191, 0.1);
 }
 
@@ -654,9 +656,70 @@ button.ghost {
   color: #0f172a;
 }
 
-.summary-card {
-  grid-column: 1 / -1; /* Span full width */
+.cognitive-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.cognitive-grid > * {
+  min-width: 0; /* Prevent grid items from overflowing */
+}
+
+.cognitive-grid .summary-card {
+  grid-column: 1 / -1; /* Span both columns */
+  grid-row: 1;
   order: -1; /* Show first */
+  width: 100%;
+}
+
+.cognitive-grid .summary-card h3 {
+  margin-top: 0;
+  font-size: 1.25rem;
+  color: #12333B;
+}
+
+.cognitive-grid .summary-card ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 1rem 0;
+}
+
+.cognitive-grid .summary-card ul li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.cognitive-grid .summary-card ul li:last-child {
+  border-bottom: none;
+}
+
+.cognitive-grid .summary-card p {
+  margin-top: 1rem;
+  margin-bottom: 0;
+  font-weight: 500;
+  color: #4A6B73;
+}
+
+/* Ensure the two cards below are equal height */
+.cognitive-grid > div:not(.summary-card) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Responsive: stack on smaller screens */
+@media (max-width: 768px) {
+  .cognitive-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+  
+  .cognitive-grid .summary-card {
+    grid-column: 1;
+  }
 }
 
 .summary-card ul {
