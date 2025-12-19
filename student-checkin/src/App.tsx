@@ -2708,21 +2708,87 @@ const AuditLogViewer = ({ auditLogs }: AuditLogViewerProps) => {
 //   )
 // }
 
+type ZoomLevel = 'day' | 'week' | 'month' | 'all'
+
 const TrendGraph = ({ history }: { history: CheckInEntry[] }) => {
-  const dataPoints = history.map((entry) => ({
-    date: formatDate(entry.createdAt),
-    mood: entry.mood,
-    stress: entry.worries,
-    sleep: entry.sleepQuality,
-  }))
+  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('all')
+  
+  // Sort by date (oldest first, left to right)
+  const sortedHistory = [...history].sort((a, b) => 
+    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  )
+
+  // Group check-ins by day and average values for same-day entries
+  const groupedByDay = sortedHistory.reduce((acc, entry) => {
+    const dateKey = new Date(entry.createdAt).toISOString().split('T')[0] // YYYY-MM-DD
+    if (!acc[dateKey]) {
+      acc[dateKey] = {
+        date: dateKey,
+        entries: [],
+        mood: 0,
+        stress: 0,
+        sleep: 0,
+        count: 0
+      }
+    }
+    acc[dateKey].entries.push(entry)
+    acc[dateKey].mood += entry.mood
+    acc[dateKey].stress += entry.worries
+    acc[dateKey].sleep += entry.sleepQuality
+    acc[dateKey].count += 1
+    return acc
+  }, {} as Record<string, { date: string; entries: CheckInEntry[]; mood: number; stress: number; sleep: number; count: number }>)
+
+  // Average values for same-day entries and sort chronologically (oldest first)
+  const dailyData = Object.values(groupedByDay)
+    .map(day => ({
+      date: day.date,
+      dateObj: new Date(day.date),
+      mood: day.mood / day.count,
+      stress: day.stress / day.count,
+      sleep: day.sleep / day.count,
+      count: day.count
+    }))
+    .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime()) // Ensure chronological order
+
+  // Filter based on zoom level
+  const now = new Date()
+  let filteredData = dailyData
+  
+  if (zoomLevel === 'month') {
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    filteredData = dailyData.filter(d => d.dateObj >= monthAgo)
+  } else if (zoomLevel === 'week') {
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    filteredData = dailyData.filter(d => d.dateObj >= weekAgo)
+  } else if (zoomLevel === 'day') {
+    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    filteredData = dailyData.filter(d => d.dateObj >= dayAgo)
+  }
+
+  // If no data after filtering, show all
+  if (filteredData.length === 0) {
+    filteredData = dailyData
+  }
 
   const chartWidth = 320
   const chartHeight = 160
   const maxValue = 5
-  const stepX = chartWidth / Math.max(1, dataPoints.length - 1)
+  const stepX = filteredData.length > 1 ? chartWidth / (filteredData.length - 1) : 0
+
+  const formatDateLabel = (dateStr: string) => {
+    const date = new Date(dateStr)
+    if (zoomLevel === 'day') {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    } else if (zoomLevel === 'week') {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    }
+  }
 
   const buildPath = (key: 'mood' | 'stress' | 'sleep') =>
-    dataPoints
+    filteredData
       .map((point, index) => {
         const value = point[key]
         const x = index * stepX
@@ -2733,6 +2799,43 @@ const TrendGraph = ({ history }: { history: CheckInEntry[] }) => {
 
   return (
     <div className="trend-graph">
+      <div className="trend-graph-header">
+        <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Trends</h4>
+        <div className="zoom-controls">
+          <button
+            type="button"
+            className={`zoom-btn ${zoomLevel === 'day' ? 'active' : ''}`}
+            onClick={() => setZoomLevel('day')}
+            title="Last 24 hours"
+          >
+            1D
+          </button>
+          <button
+            type="button"
+            className={`zoom-btn ${zoomLevel === 'week' ? 'active' : ''}`}
+            onClick={() => setZoomLevel('week')}
+            title="Last week"
+          >
+            1W
+          </button>
+          <button
+            type="button"
+            className={`zoom-btn ${zoomLevel === 'month' ? 'active' : ''}`}
+            onClick={() => setZoomLevel('month')}
+            title="Last month"
+          >
+            1M
+          </button>
+          <button
+            type="button"
+            className={`zoom-btn ${zoomLevel === 'all' ? 'active' : ''}`}
+            onClick={() => setZoomLevel('all')}
+            title="All time"
+          >
+            All
+          </button>
+        </div>
+      </div>
       <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
         <path d={buildPath('mood')} stroke="#4f46e5" fill="none" strokeWidth={3} />
         <path d={buildPath('sleep')} stroke="#14b8a6" fill="none" strokeWidth={3} strokeDasharray="6 6" />
@@ -2750,9 +2853,36 @@ const TrendGraph = ({ history }: { history: CheckInEntry[] }) => {
         </span>
       </div>
       <div className="dates">
-        {dataPoints.map((point) => (
-          <span key={point.date}>{point.date}</span>
-        ))}
+        {filteredData.length > 0 && (
+          <>
+            {/* Always show first date */}
+            <span key={`first-${filteredData[0].date}`} style={{ fontSize: '0.75rem' }}>
+              {formatDateLabel(filteredData[0].date)}
+              {filteredData[0].count > 1 && <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}> ({filteredData[0].count})</span>}
+            </span>
+            {/* Show middle dates if there are enough */}
+            {filteredData.length > 2 && filteredData.slice(1, -1).map((point, idx) => {
+              const totalMiddle = filteredData.length - 2
+              const showEvery = Math.max(1, Math.floor(totalMiddle / 3))
+              const showLabel = idx % showEvery === 0 || idx === Math.floor(totalMiddle / 2)
+              return showLabel ? (
+                <span key={point.date} style={{ fontSize: '0.75rem' }}>
+                  {formatDateLabel(point.date)}
+                  {point.count > 1 && <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}> ({point.count})</span>}
+                </span>
+              ) : <span key={point.date} style={{ width: '1px' }}></span>
+            })}
+            {/* Always show last date */}
+            {filteredData.length > 1 && (
+              <span key={`last-${filteredData[filteredData.length - 1].date}`} style={{ fontSize: '0.75rem' }}>
+                {formatDateLabel(filteredData[filteredData.length - 1].date)}
+                {filteredData[filteredData.length - 1].count > 1 && (
+                  <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}> ({filteredData[filteredData.length - 1].count})</span>
+                )}
+              </span>
+            )}
+          </>
+        )}
       </div>
     </div>
   )

@@ -1088,6 +1088,41 @@ button.ghost {
   text-transform: uppercase;
 }
 
+.trend-graph-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.zoom-controls {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.zoom-btn {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.zoom-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.zoom-btn.active {
+  background: #4BAFBF;
+  color: #ffffff;
+  border-color: #4BAFBF;
+}
+
 .trend-graph {
   margin-top: 1rem;
 }
@@ -1128,9 +1163,17 @@ button.ghost {
 .dates {
   display: flex;
   justify-content: space-between;
-  margin-top: 0.25rem;
+  margin-top: 0.5rem;
   color: #94a3b8;
   font-size: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.dates span {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
 }
 
 .flags {
