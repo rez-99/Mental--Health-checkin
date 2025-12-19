@@ -1066,12 +1066,27 @@ button.ghost {
 }
 
 .schedule-form input,
-.schedule-form textarea {
+.schedule-form textarea,
+.schedule-form select {
   padding: 0.75rem;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   font-size: 0.95rem;
   background: #ffffff;
+  font-family: inherit;
+  color: #12333B;
+}
+
+.schedule-form select {
+  cursor: pointer;
+}
+
+.schedule-form input:focus,
+.schedule-form textarea:focus,
+.schedule-form select:focus {
+  outline: none;
+  border-color: #4BAFBF;
+  box-shadow: 0 0 0 3px rgba(75, 175, 191, 0.1);
 }
 
 .schedule-form-actions {

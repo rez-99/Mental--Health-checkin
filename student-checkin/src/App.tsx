@@ -3027,10 +3027,16 @@ type ActionButtonsProps = {
 const ActionButtons = ({ student, onUpdate }: ActionButtonsProps) => {
   const [message, setMessage] = useState<string | null>(null)
   const [showScheduleForm, setShowScheduleForm] = useState(false)
+  const [showMessageForm, setShowMessageForm] = useState(false)
   const [scheduleData, setScheduleData] = useState({
     date: '',
     time: '',
     notes: ''
+  })
+  const [messageData, setMessageData] = useState({
+    subject: '',
+    content: '',
+    priority: 'normal' as 'normal' | 'urgent'
   })
 
   const handleScheduleCheckIn = () => {
@@ -3128,7 +3134,69 @@ const ActionButtons = ({ student, onUpdate }: ActionButtonsProps) => {
           </div>
         </div>
       )}
-      <button onClick={() => trigger('Send supportive message')}>Send supportive message</button>
+      <button onClick={() => setShowMessageForm(!showMessageForm)}>Send supportive message</button>
+      {showMessageForm && (
+        <div className="schedule-form">
+          <label>
+            Subject
+            <input
+              type="text"
+              value={messageData.subject}
+              onChange={(e) => setMessageData({ ...messageData, subject: e.target.value })}
+              placeholder="e.g., Checking in on you"
+              required
+            />
+          </label>
+          <label>
+            Message
+            <textarea
+              rows={4}
+              value={messageData.content}
+              onChange={(e) => setMessageData({ ...messageData, content: e.target.value })}
+              placeholder="Write a supportive message to the student..."
+              required
+            />
+          </label>
+          <label>
+            Priority
+            <select
+              value={messageData.priority}
+              onChange={(e) => setMessageData({ ...messageData, priority: e.target.value as 'normal' | 'urgent' })}
+            >
+              <option value="normal">Normal</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </label>
+          <div className="schedule-form-actions">
+            <button 
+              type="button" 
+              className="primary" 
+              onClick={() => {
+                if (!messageData.subject || !messageData.content) {
+                  setMessage('Please fill in subject and message')
+                  setTimeout(() => setMessage(null), 2500)
+                  return
+                }
+                trigger(`Supportive message sent to ${student.name}`)
+                setShowMessageForm(false)
+                setMessageData({ subject: '', content: '', priority: 'normal' })
+              }}
+            >
+              Send Message
+            </button>
+            <button 
+              type="button" 
+              className="ghost" 
+              onClick={() => {
+                setShowMessageForm(false)
+                setMessageData({ subject: '', content: '', priority: 'normal' })
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       <button onClick={() => trigger('Marked as followed by counselor')}>Mark as followed</button>
       {message && <p className="action-status">{message}</p>}
     </div>
